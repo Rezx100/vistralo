@@ -220,6 +220,9 @@ async function start() {
     // Fall back only when the provider refuses the request outright (unknown model, no access, or over the
     // account's rate limit: one request carries every screen); a 5xx has unknown billing and is never retried.
     const models = [...new Set([process.env.VISTRALO_DIRECTOR_MODEL, 'gpt-5-mini', 'gpt-4.1', 'gpt-4o-mini'].filter(Boolean))];
+    // The film aims at about three times the recording and not much past six minutes; the build kit keeps the full detail.
+    // Speech runs at about 2.4 words a second, and each pause adds a second of silence around its words.
+    const budget = Math.round(Math.max(60, Math.min(3 * duration, 360) - duration - views.length * 0.5) * 2.4);
     let drafted;
     for (const [i, model] of models.entries()) {
       try {
@@ -229,6 +232,7 @@ async function start() {
           model,
           viewports,
           evidence,
+          budget,
           width: picture.width || 1920,
           height: picture.height || 1080,
           cap: settings.cap,
@@ -242,7 +246,7 @@ async function start() {
         console.warn(`Director model ${model} was rejected (HTTP ${error.status}); trying ${models[i + 1]}`);
       }
     }
-    const stops = [...drafted.stops];
+    const stops = drafted.stops.map((stop, i) => ({ ...stop, ref: i }));
     const closing = [drafted.closing, drafted.closingStack].filter(Boolean).join(' ');
     if (closing) stops.push({ at: views.at(-1).at, label: 'Design system', text: closing });
     const spoken = stops.filter((stop) => stop.text);
@@ -277,7 +281,8 @@ async function start() {
           viewport: i + 1,
           label: stop.label,
           sourceAt: stop.at,
-          filmAt: composed.parts.find((part) => part.text === stop.text)?.at ?? null,
+          // Silent stops play through, so their screen is where the recording moment lands in the film.
+          filmAt: composed.parts.find((part) => part.ref === i)?.at ?? composed.filmAt(stop.at),
           build: stop.build || {},
         })),
       });

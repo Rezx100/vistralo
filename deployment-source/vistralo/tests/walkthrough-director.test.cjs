@@ -29,6 +29,16 @@ test('walkthrough freezes on each stop while its narration plays',async()=>{cons
  assert.ok(Math.abs(result.parts[0].at-1.38)<.1&&Math.abs(result.parts[1].at-4.41)<.15,JSON.stringify(result.parts));
  assert.match(fs.readFileSync(path.join(root,result.captions),'utf8'),/First[\s\S]*Second/);assert.equal(fs.readdirSync(path.join(root,'exports')).filter(f=>f.endsWith('.mp4')).length,1);});
 
+test('walkthrough keeps picture and sound when a stop lands in a recording gap with no frames',async()=>{const root=temp();
+ // Like MediaRecorder on a still screen: no frame between 1.5 s and 2.9 s, and no cues.
+ await run('ffmpeg',['-v','error','-f','lavfi','-i','testsrc2=size=320x180:rate=30','-f','lavfi','-i','sine=frequency=220:sample_rate=48000','-t','3','-vf',"select='lt(t,1.5)+gte(t,2.9)'",'-fps_mode','vfr','-c:v','libvpx','-deadline','realtime','-c:a','libopus','-live','1',path.join(root,'video.webm')]);
+ for(const n of [1,2])await run('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','1',path.join(root,`v${n}.wav`)]);
+ const result=await composeWalkthrough(new Media(),root,{video:'video.webm',stops:[{at:.5,text:'First',audio:'v1.wav',ref:0},{at:2.2,text:'In the gap',audio:'v2.wav',ref:1},{at:2.2,text:'Closing',audio:'v1.wav'}]});
+ const streams=(await new Media().probe(path.join(root,result.file))).streams,track=k=>Number(streams.find(s=>s.codec_type===k).duration);
+ assert.ok(Math.abs(track('video')-result.duration)<.3&&Math.abs(track('audio')-result.duration)<.3,JSON.stringify(streams.map(s=>[s.codec_type,s.duration])));
+ assert.ok(Math.abs(result.duration-9)<.4,`duration ${result.duration}`);assert.deepEqual(result.parts.map(p=>p.ref),[0,1,null]);
+ assert.ok(Math.abs(result.filmAt(1)-3)<.1&&result.filmAt(.2)===.2,`filmAt ${result.filmAt(1)}`);assert.ok(result.parts.at(-1).at+result.parts.at(-1).length<=result.duration);});
+
 test('director script sends every viewport and maps stops back by number',async()=>{const s=new Store(temp()),p=s.create('Director','walkthrough'),root=s.dir(p.id);fs.mkdirSync(path.join(root,'evidence'),{recursive:true});for(const f of ['a','b','m'])fs.writeFileSync(path.join(root,`evidence/${f}.jpg`),Buffer.from([255,216,255]));
  let sent;const reply={system:{palette:'white and violet',typography:'sans',shape:'pill',iconography:'outline',spacing:'airy',imagery:'studio',motion:'none visible'},stops:[{viewport:2,looking_at:'Offers',notes:'n',narration:'Four **cards**, ~300px tall with a 6–8px radius, a 56x20px badge, 4.3% lift and a #7A1BD9 accent.'},{viewport:1,looking_at:'Hero',notes:'n',narration:'Anua home page.'}],closing:'Calm system.'};
  const providers=new Providers(s,{read:()=>({openai:'k'})},async(url,init)=>{sent=JSON.parse(init.body);return {ok:true,status:200,headers:new Headers(),json:async()=>({model:'gpt-4.1',output:[{content:[{type:'output_text',text:JSON.stringify(reply)}]}]})};});

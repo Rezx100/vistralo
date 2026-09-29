@@ -10,6 +10,8 @@ The workspace owner enters the OpenAI and HeyGen keys in the app's provider sett
 
 The worker sends every held viewport plus small in-motion frames, and the build read's evidence text, in one structured request (`providers.directorScript`). The model is `VISTRALO_DIRECTOR_MODEL` if set, else `gpt-5-mini`, falling back to `gpt-4.1` and then `gpt-4o-mini` on HTTP 400, 403, 404 or 429.
 
+The request carries a word budget that keeps the film near three times the recording and not much past six minutes. The director leaves repeated screens silent (the video plays through them), and each spoken stop ends with one line on how that section is built, hedged with "looks like" unless the build read proved it. The full detail per screen stays in the build brief.
+
 ## HeyGen (voice)
 
 The default voice is `02dbea5e083144c884525b7d9260bec6` (**Rezan Ferdous -- 62**); the owner can choose another voice ID in settings. Speech is made per spoken stop with `POST /v3/voices/speech`, at most 5,000 characters per request.
