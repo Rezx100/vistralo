@@ -1,0 +1,32 @@
+{
+  "name": "vistralo",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Spoken walkthroughs from screen recordings, videos, screenshots and websites",
+  "author": "Dynamix LTD",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "build:server": "esbuild server-ui/hash-worker.source.js --bundle --minify --outfile=server-ui/hash-worker.js && npm run build:web",
+    "build:web": "node scripts/build-web.cjs",
+    "build:cloud": "node scripts/build-cloud.cjs",
+    "typecheck:web": "tsc -p tsconfig.web.json",
+    "lint:design": "node scripts/lint-design.cjs",
+    "test:web:a11y": "node scripts/web-accessibility-test.cjs",
+    "test:web:journey": "node scripts/web-journey.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.99.1",
+    "crypto-js": "4.2.0",
+    "playwright": "1.58.2",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "axe-core": "^4.11.0",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}

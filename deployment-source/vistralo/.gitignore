@@ -1,0 +1,20 @@
+node_modules/
+*.log
+
+.env*
+!.env.example
+
+# Written by scripts/build-web.cjs and build-cloud.cjs
+server-ui/app.js
+server-ui/app.js.LEGAL.txt
+server-ui/style.css
+server-ui/tokens.css
+server-ui/index.html
+server-ui/hash-worker.js
+dist-web/
+
+# Written by the browser test scripts (uploaded as CI artifacts)
+evidence/
+
+.vercel/
+supabase/.temp/

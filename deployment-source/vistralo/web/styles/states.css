@@ -1,0 +1,67 @@
+.states-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.states-page .page-header {
+  margin-block-end: 0;
+}
+.states-disclosure,
+.states-context {
+  margin: 0;
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+  color: var(--fg-secondary);
+}
+.states-disclosure {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--stroke-divider);
+  border-radius: var(--radius-control);
+  background: var(--bg-card);
+}
+.states-disclosure a {
+  margin-inline-start: var(--space-2);
+  color: var(--accent-soft);
+}
+.states-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding-block-end: var(--space-4);
+  border-block-end: var(--border-width) solid var(--stroke-divider);
+}
+.states-controls > label {
+  flex: 1;
+  min-inline-size: min(100%, var(--evidence-thumb-width));
+}
+.states-controls .field {
+  margin: 0;
+}
+.states-context {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.states-selection {
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--stroke-divider);
+  border-radius: var(--radius-control);
+  background: var(--bg-card);
+}
+.states-row-link {
+  text-align: start;
+  color: var(--fg-primary);
+  background: none;
+  border: 0;
+  padding: var(--space-1) 0;
+  font: inherit;
+  cursor: pointer;
+}
+.states-row-link:hover {
+  text-decoration: underline;
+}
+.states-page .creation-tile {
+  text-decoration: none;
+  color: var(--fg-primary);
+}

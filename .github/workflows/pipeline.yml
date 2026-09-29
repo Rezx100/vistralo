@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vistralo-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: deployment-source/vistralo
+
+jobs:
+  validate:
+    name: Validate source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out reviewed revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Install Node.js 24
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24.19.0
+          cache: npm
+          cache-dependency-path: deployment-source/vistralo/package-lock.json
+
+      - name: Install FFmpeg and locked dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          npm ci --ignore-scripts
+
+      - name: Build, test, typecheck, lint and audit
+        run: |
+          npm run build:server
+          npm test
+          npm run typecheck:web
+          npm run lint:design
+          npm audit --omit=dev
+          npm audit
+          node --check scripts/local-admin-worker.cjs
+          bash -n deploy/vps-worker-install.sh
+
+  web-browser:
+    name: Web journeys and accessibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24.19.0
+      - name: Install browser and media tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Build and verify browser journeys
+        run: |
+          npm run build:server
+          npm run test:web:a11y
+          npm run test:web:journey
+      - name: Save screenshots and acceptance records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vistralo-web-evidence
+          path: |
+            deployment-source/vistralo/evidence/

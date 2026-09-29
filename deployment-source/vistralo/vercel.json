@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci --ignore-scripts",
+  "buildCommand": "npm run build:cloud",
+  "outputDirectory": "dist-web",
+  "headers": [{"source":"/(.*)","headers":[
+    {"key":"X-Content-Type-Options","value":"nosniff"},
+    {"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"},
+    {"key":"X-Frame-Options","value":"DENY"},
+    {"key":"Permissions-Policy","value":"camera=(), geolocation=(), microphone=(self), display-capture=(self)"},
+    {"key":"Cache-Control","value":"no-cache"},
+    {"key":"Content-Security-Policy","value":"default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' blob: data: https://yyiikuzhgxdgrthntzyr.supabase.co; media-src 'self' blob: https://yyiikuzhgxdgrthntzyr.supabase.co; connect-src 'self' https://yyiikuzhgxdgrthntzyr.supabase.co https://yyiikuzhgxdgrthntzyr.storage.supabase.co wss://yyiikuzhgxdgrthntzyr.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"}
+  ]}],
+  "rewrites":[{"source":"/auth/callback","destination":"/index.html"}]
+}

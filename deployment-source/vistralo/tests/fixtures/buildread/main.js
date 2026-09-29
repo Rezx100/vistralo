@@ -1,0 +1,5 @@
+import{r as e}from"./chunks/rolldown-runtime-DdACKOZr.js";import{i as t,n as i,r as s,t as o}from"./chunks/vendor-gsap-GRoENYFU.js";import{n as p}from"./chunks/lenis-_dxIi_hK.js";import{n as _,t as w}from"./chunks/vendor-barba-DgBrL9HN.js";
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["chunks/OceanScene-CggVSafL.js","chunks/WakeSimulation-BBrDm1Iz.js"])))=>i.map(i=>d[i]);
+var R={"../scenes/OceanScene.js":()=>m(()=>import("./chunks/OceanScene-CggVSafL.js"),__vite__mapDeps([0,1,2]),import.meta.url),"../scenes/WakeSimulation.js":()=>m(()=>import("./chunks/WakeSimulation-BBrDm1Iz.js"),__vite__mapDeps([1]),import.meta.url)};
+class F{constructor(){this.io=new IntersectionObserver(e=>{e.forEach(e=>{e.isIntersecting&&e.target.classList.add("is-in")})},{threshold:.2});this.globe=document.querySelector(".home-hero_globe-wrap")}}
+_.init({transitions:[{name:"fade",leave(e){return o.to(e.current.container,{autoAlpha:0,duration:.4})},enter(e){return o.from(e.next.container,{autoAlpha:0,duration:.4})}}]});

@@ -1,0 +1,12 @@
+'use strict';
+const fs=require('node:fs');
+const {execFileSync}=require('node:child_process');
+const url=process.env.VISTRALO_SUPABASE_URL,key=process.env.VISTRALO_SUPABASE_PUBLISHABLE_KEY;
+if(!url||!key)throw Error('Set VISTRALO_SUPABASE_URL and VISTRALO_SUPABASE_PUBLISHABLE_KEY in Vercel.');
+if(!key.startsWith('sb_publishable_'))throw Error('Only a publishable key may be embedded in the frontend.');
+if(new URL(url).protocol!=='https:')throw Error('Supabase must use HTTPS.');
+require('esbuild').buildSync({entryPoints:['server-ui/hash-worker.source.js'],bundle:true,minify:true,outfile:'server-ui/hash-worker.js'});
+execFileSync(process.execPath,['scripts/build-web.cjs'],{stdio:'inherit'});
+fs.mkdirSync('dist-web',{recursive:true});
+for(const file of ['index.html','app.js','app.js.LEGAL.txt','style.css','tokens.css','hash-worker.js'])if(fs.existsSync('server-ui/'+file))fs.copyFileSync('server-ui/'+file,'dist-web/'+file);
+fs.cpSync('server-ui/assets','dist-web/assets',{recursive:true});

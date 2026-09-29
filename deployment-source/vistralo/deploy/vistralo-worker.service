@@ -1,0 +1,19 @@
+[Unit]
+Description=Vistralo capture and render worker
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/vistralo-worker
+EnvironmentFile=/etc/vistralo-worker.env
+ExecStart=/usr/bin/node scripts/local-admin-worker.cjs
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vistralo-worker
+
+[Install]
+WantedBy=multi-user.target
