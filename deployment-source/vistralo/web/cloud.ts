@@ -216,6 +216,11 @@ export class CloudAdapter implements WorkspaceAdapter {
       const job=unwrap(await required().from('vistralo_jobs').insert({project_id:args.id,owner_id:row.owner_id,kind,payload}).select().single());
       await this.save(args.id,p=>({...p,status:'queued',error:undefined}));return job as T;
     }
+    if(method==='cancel'){
+      const cancelled=unwrap(await required().rpc('vistralo_cancel_jobs',{p_project:args.id}));
+      await this.save(args.id,p=>p.status==='queued'||p.status==='processing'?{...p,status:'draft',eventLabel:'Updated',eventAt:now(),error:undefined}:p);
+      return {cancelled} as T;
+    }
     if(method==='providerSettings'){
       const account=await cloudAccount();
       const rows=unwrap(await required().from('vistralo_provider_settings').select('voice_id,cost_cap_usd,openai_configured,heygen_configured').eq('owner_id',account.user_id));
