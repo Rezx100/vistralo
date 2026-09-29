@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { Project, WorkspaceAdapter } from "../contracts";
-import { errorMessage, formatDuration } from "./flow-utils";
+import { errorMessage } from "./flow-utils";
 
 type Confidence = "confirmed" | "likely";
 interface BriefLibrary {
@@ -31,15 +31,13 @@ const names = (libraries: BriefLibrary[], confidence: Confidence) =>
     .map((library) => library.name)
     .join(", ");
 
-/** The worker's build brief: the site stack, then a copyable coding-agent prompt per stop. */
+/** The worker's build brief as a short stack summary; the per-section prompts ship in the Download files kit. */
 export function BuildBrief({
   project,
   adapter,
-  notify,
 }: {
   project: Project;
   adapter: WorkspaceAdapter;
-  notify: (message: string, error?: boolean) => void;
 }) {
   const files = project.data.buildBrief as
     | { json?: string; markdown?: string }
@@ -73,21 +71,17 @@ export function BuildBrief({
   const libraries = brief?.stack?.libraries ?? [];
   const confirmed = names(libraries, "confirmed"),
     likely = names(libraries, "likely");
-  const stops = (brief?.stops ?? []).filter((stop) => stop.agent_prompt);
+  const sectionCount = (brief?.stops ?? []).filter(
+    (stop, index) =>
+      index === 0 ||
+      !/^same as\b/i.test((stop.agent_prompt || "").trim()) &&
+        !/^same as\b/i.test((stop.effect || "").trim()),
+  ).length;
   const source = !brief?.url
     ? "No website address was given, so every claim comes from the video."
     : brief.evidence?.status === "ok"
       ? `Read from ${new URL(brief.url).hostname}.`
       : "The website could not be read, so every claim comes from the video.";
-
-  async function copy(stop: BriefStop) {
-    try {
-      await navigator.clipboard.writeText(stop.agent_prompt || "");
-      notify(`Prompt for ${stop.label || `stop ${stop.viewport}`} copied.`);
-    } catch {
-      notify("Could not copy. Download the brief and copy the prompt from it.", true);
-    }
-  }
 
   return (
     <section className="build-brief" aria-labelledby="build-brief-title">
@@ -95,19 +89,11 @@ export function BuildBrief({
         <div>
           <h2 id="build-brief-title">Build brief</h2>
           <p className="flow-muted">
-            How each effect is built, with a prompt a coding agent can rebuild it
-            from. {source}
+            {source} Download files gives a coding agent one prompt covering{" "}
+            {sectionCount ? `all ${sectionCount} sections` : "every section"}, with
+            the video and a still of each.
           </p>
         </div>
-        {files.markdown && (
-          <a
-            className="button button-ghost"
-            href={adapter.media(project.id, files.markdown, true)}
-            download
-          >
-            Download
-          </a>
-        )}
       </div>
       {error && <p className="flow-muted">{error}</p>}
       {brief && (
@@ -129,39 +115,6 @@ export function BuildBrief({
             </div>
           )}
         </dl>
-      )}
-      {stops.length > 0 && (
-        <ol className="build-brief-stops">
-          {stops.map((stop) => (
-            <li key={stop.viewport}>
-              <div className="build-brief-stop">
-                <strong>
-                  {stop.label || `Stop ${stop.viewport}`}
-                  {Number.isFinite(stop.sourceAt) && (
-                    <span className="flow-muted">
-                      {" "}
-                      · {formatDuration(stop.sourceAt!)}
-                    </span>
-                  )}
-                </strong>
-                {stop.effect && <span>{stop.effect}</span>}
-                {stop.technique && (
-                  <span className="flow-muted">
-                    {stop.technique} ({stop.confidence || "likely"})
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                className="button button-ghost"
-                onClick={() => void copy(stop)}
-                aria-label={`Copy prompt for ${stop.label || `stop ${stop.viewport}`}`}
-              >
-                Copy prompt
-              </button>
-            </li>
-          ))}
-        </ol>
       )}
     </section>
   );

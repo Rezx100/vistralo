@@ -29,6 +29,7 @@ import { States } from "./features/States";
 import { CreateProject } from "./features/CreateProject";
 import { flowFor, type CreateFlow } from "./features/create-flows";
 import { ProjectDetail } from "./features/ProjectDetail";
+import { downloadAgentKit } from "./agent-kit";
 import { ProviderSettings } from "./features/ProviderSettings";
 import { copyText, isTyping, statusText } from "./utils";
 const docsUrl = "https://vistralo.com/#how";
@@ -638,20 +639,17 @@ export default function App() {
   }
   async function download(p: Project) {
     const detail = await adapter.project(p.id);
-    const file =
-      detail.project.data.output?.file ||
-      detail.project.video ||
-      detail.files.find((f) => /\.md$/.test(f.file))?.file;
-    if (!file)
+    if (!detail.files.length && !detail.brief)
       throw Error(
-        "No completed output to download yet. Open the project to finish it.",
+        "Nothing to download yet. Open the project to finish it.",
       );
-    const a = document.createElement("a");
-    a.href = adapter.media(p.id, file, true);
-    a.download = "";
-    document.body.append(a);
-    a.click();
-    a.remove();
+    notify("Preparing the build kit…");
+    await downloadAgentKit(
+      adapter,
+      detail.project,
+      () => {},
+      detail.project.type === "brief" ? detail.brief || "" : "",
+    );
   }
   async function trash(ids: string[]) {
     await adapter.trash(ids);
@@ -766,7 +764,7 @@ export default function App() {
               label: "Download",
               icon: "download",
               disabled: !p.video && !p.data.output?.file,
-              onClick: () => run(() => download(p), "Download requested"),
+              onClick: () => run(() => download(p), "Build kit downloaded"),
             },
           ]
         : []),

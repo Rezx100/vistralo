@@ -16,15 +16,14 @@ import { Icon } from "../components/Icon";
 import { uuid } from "../id";
 import {
   buildClipPlan,
-  downloadText,
   errorMessage,
   formatBytes,
   formatDuration,
   publicWebsite,
-  safeFilename,
   validateVideo,
 } from "./flow-utils";
 import { BuildBrief } from "./BuildBrief";
+import { downloadAgentKit } from "../agent-kit";
 import "./features.css";
 
 interface Props {
@@ -206,7 +205,8 @@ export function ProjectDetail({
     [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState("");
+    [busy, setBusy] = useState(""),
+    [kitStage, setKitStage] = useState("");
   const [brief, setBrief] = useState(""),
     [briefDirty, setBriefDirty] = useState(false),
     [briefMode, setBriefMode] = useState<"edit" | "preview">("preview");
@@ -242,11 +242,6 @@ export function ProjectDetail({
     project.data.walkthroughVideo ||
     project.data.video ||
     original) as string | undefined;
-  const captions =
-    typeof project.data.captions === "string" &&
-    project.data.files?.[project.data.captions]
-      ? (project.data.captions as string)
-      : undefined;
   const canVoiceover =
     adapter.mode === "cloud" &&
     adapter.capabilities.providers &&
@@ -532,11 +527,23 @@ export function ProjectDetail({
         }));
     })
     .slice(0, 18);
-  const download = (file: string, label: string) => (
-    <a className="button" href={adapter.media(project.id, file, true)} download>
-      {label}
-    </a>
+  const canDownload = !!(
+    previewFile ||
+    project.data.buildBrief?.json ||
+    (project.type === "brief" && brief.trim())
   );
+  async function downloadKit() {
+    if (kitStage) return;
+    setKitStage("Preparing");
+    try {
+      await downloadAgentKit(adapter, project, setKitStage, project.type === "brief" ? brief : "");
+      notify("Build kit downloaded: prompt, video, captions and screens.");
+    } catch (failure) {
+      notify(errorMessage(failure), true);
+    } finally {
+      setKitStage("");
+    }
+  }
 
   return (
     <div className="project-detail flow-stack">
@@ -571,9 +578,18 @@ export function ProjectDetail({
           </p>
         </div>
         <div className="flow-actions">
-          {output && download(output, "Download output")}
-          {sourceFile && sourceFile !== output && download(sourceFile, "Download source")}
-          {captions && download(captions, "Download captions")}
+          {canDownload && (
+            <button
+              type="button"
+              className="button"
+              disabled={!!kitStage || active}
+              aria-live="polite"
+              title="One ZIP for a coding agent: a compact prompt, the narrated video, captions and a still of each section"
+              onClick={() => void downloadKit()}
+            >
+              {kitStage ? `${kitStage}…` : "Download files"}
+            </button>
+          )}
         </div>
       </header>
       {!active && !project.error && project.type === "walkthrough" && (
@@ -1283,15 +1299,6 @@ export function ProjectDetail({
                   >
                     {briefMode === "edit" ? "Preview" : "Edit brief"}
                   </button>
-                  <button
-                    className="button"
-                    disabled={!brief.trim()}
-                    onClick={() =>
-                      downloadText(brief, `${safeFilename(project.name)}.md`)
-                    }
-                  >
-                    Download brief
-                  </button>
                 </div>
               </header>
               {!brief.trim() && briefMode === "preview" ? (
@@ -1462,11 +1469,14 @@ export function ProjectDetail({
               <div>
                 <h2>Project files</h2>
                 <p className="flow-muted">
-                  Source masters, captured evidence and exported outputs.
+                  Download files, at the top of the page, packs everything a coding
+                  agent needs into one ZIP.
                 </p>
               </div>
-              <BuildBrief project={project} adapter={adapter} notify={notify} />
+              <BuildBrief project={project} adapter={adapter} />
               {files.length ? (
+                <details>
+                  <summary>Individual files ({files.length})</summary>
                 <div className="flow-table-wrap">
                   <table className="flow-files">
                     <thead>
@@ -1498,6 +1508,7 @@ export function ProjectDetail({
                     </tbody>
                   </table>
                 </div>
+                </details>
               ) : (
                 <div className="flow-empty">
                   <h3>No files yet</h3>

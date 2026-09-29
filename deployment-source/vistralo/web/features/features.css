@@ -617,27 +617,6 @@ main:has(> .project-detail) {
 .build-brief-stack dd {
   margin: 0;
 }
-.build-brief-stops {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.build-brief-stops li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-block: var(--space-3);
-  border-block-start: var(--border-width) solid var(--stroke-divider);
-}
-.build-brief-stop {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-inline-size: 0;
-}
 .flow-skeleton {
   block-size: var(--detail-media-height);
   background: var(--bg-card);
