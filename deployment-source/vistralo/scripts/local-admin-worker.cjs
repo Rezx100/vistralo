@@ -112,6 +112,7 @@ async function start() {
     const model = typeof job.payload.model === 'string' && job.payload.model ? job.payload.model : 'gpt-4o-mini';
     const estimate = Math.min(settings.cap, Number((0.02 + frames.length * 0.01).toFixed(2)));
     const result = await providersFor(settings).screenScript(nativeId, {
+      signal,
       uploadApproved: true,
       model,
       frames,
@@ -142,6 +143,7 @@ async function start() {
 
     const estimate = Math.min(settings.cap, Math.max(0.02, Number((script.length / 1000 * 0.03).toFixed(2))));
     const speech = await providersFor(settings).speech(nativeId, {
+      signal,
       text: script,
       scriptApproved: true,
       cap: settings.cap,
@@ -151,7 +153,7 @@ async function start() {
     });
     const composed = await composeNarrated(service.media, nativeRoot, [
       { video: imported.file, audio: speech.file, start: 0, end: duration, text: script },
-    ]);
+    ], { signal });
     const video = await upload(job, composed.file, nativeRoot, files);
     const captions = await upload(job, composed.captions, nativeRoot, files);
     return {
@@ -196,7 +198,8 @@ async function start() {
         .catch((error) => ({ url: siteUrl, status: 'failed', reason: String(error.message || error).slice(0, 200), steps: [] }))
       : Promise.resolve(null);
     await reportProgress(job, { percent: 8, stage: 'Finding every screen', detail: siteUrl ? 'Following each scroll and reading how the site is built' : 'Following each scroll and page change' });
-    const views = (await detectViewports(service.media, sourcePath)).viewports;
+    const views = (await detectViewports(service.media, sourcePath, { signal })).viewports;
+    checkCancelled();
     reach = views.length + 1;
     await reportProgress(job, { percent: 14, stage: 'Finding every screen', detail: `${views.length} screen${views.length > 1 ? 's' : ''} to explain` });
     const holds = await service.media.framesAt(nativeRoot, imported.file, views.map((v) => v.at), { dir: 'evidence/viewports' });
@@ -221,6 +224,7 @@ async function start() {
     for (const [i, model] of models.entries()) {
       try {
         drafted = await providersFor(settings).directorScript(nativeId, {
+          signal,
           uploadApproved: true,
           model,
           viewports,
@@ -245,6 +249,7 @@ async function start() {
     for (const [i, stop] of spoken.entries()) {
       await reportProgress(job, { percent: 30 + Math.round((i / spoken.length) * 45), stage: 'Generating voice', detail: `Screen ${i + 1} of ${spoken.length}` });
       const speech = await providersFor(settings).speech(nativeId, {
+        signal,
         text: stop.text,
         scriptApproved: true,
         cap: settings.cap,
@@ -255,7 +260,7 @@ async function start() {
       stop.audio = speech.file;
     }
     await reportProgress(job, { percent: 78, stage: 'Attaching voice', detail: `Pausing on ${spoken.length} screens while each is explained` });
-    const composed = await composeWalkthrough(service.media, nativeRoot, { video: imported.file, stops: spoken });
+    const composed = await composeWalkthrough(service.media, nativeRoot, { video: imported.file, stops: spoken }, { signal });
     await reportProgress(job, { percent: 95, stage: 'Saving walkthrough', detail: 'Uploading the narrated video' });
     const video = await upload(job, composed.file, nativeRoot, files);
     const captions = await upload(job, composed.captions, nativeRoot, files);
@@ -343,7 +348,7 @@ async function start() {
           progress.preview = previewPath;
           progress.previewAt = Date.now();
         }
-        await db.from('vistralo_jobs').update({ progress }).eq('id', job.id);
+        await db.from('vistralo_jobs').update({ progress }).eq('id', job.id).eq('state', 'processing');
       } catch { /* progress is best-effort; never fail the capture for it */ }
       finally { busy = false; }
     };
@@ -351,10 +356,26 @@ async function start() {
     return () => clearInterval(timer);
   }
 
+  // Set per job; the owner cancels by moving the job row to 'cancelled'.
+  let signal = new AbortController().signal;
+  const CANCELLED = 'Cancelled by the owner';
+  const checkCancelled = () => { if (signal.aborted) throw Error(CANCELLED); };
   const reportProgress = async (job, progress) => {
+    checkCancelled();
     const value = { ...progress, percent: monotonic(progress.percent) };
-    try { await db.from('vistralo_jobs').update({ progress: value }).eq('id', job.id); } catch { /* best effort */ }
+    try { await db.from('vistralo_jobs').update({ progress: value }).eq('id', job.id).eq('state', 'processing'); } catch { /* best effort */ }
   };
+  function watchCancel(job) {
+    const controller = new AbortController();
+    signal = controller.signal;
+    const timer = setInterval(async () => {
+      try {
+        const rows = unwrap(await db.from('vistralo_jobs').select('state').eq('id', job.id));
+        if (rows[0]?.state === 'cancelled') { console.log('Cancel requested', job.id); controller.abort(); clearInterval(timer); }
+      } catch { /* try again on the next tick */ }
+    }, 3000);
+    return () => clearInterval(timer);
+  }
 
   let stopped = false;
   process.on('SIGTERM', () => { stopped = true; });
@@ -381,11 +402,11 @@ async function start() {
   // bucket.download() buffers the whole object in memory; stream it to disk instead.
   const download = async (source, local) => {
     const { signedUrl } = unwrap(await bucket.createSignedUrl(source, 3600));
-    const response = await fetch(signedUrl);
+    const response = await fetch(signedUrl, { signal });
     assert(response.ok && response.body, `Could not download the source (HTTP ${response.status})`);
     const size = Number(response.headers.get('content-length'));
     assert(!(size > LIMIT), 'Source exceeds 50 GB');
-    await pipeline(Readable.fromWeb(response.body), fs.createWriteStream(local));
+    await pipeline(Readable.fromWeb(response.body), fs.createWriteStream(local), { signal });
     assert(!size || fs.statSync(local).size === size, 'Source download was incomplete');
   };
   // A job only reaches 'processing' once this worker claims it, so anything
@@ -404,6 +425,8 @@ async function start() {
   let sweptAt = Date.now();
 
   console.log('Capture worker signed in');
+  // The app treats a heartbeat older than 60 s as offline, and a job can run far longer than that.
+  const beat = setInterval(() => { heartbeat().catch(() => {}); }, 15000);
   try {
     while (!stopped) {
       await heartbeat();
@@ -414,6 +437,7 @@ async function start() {
       if (!job) { await new Promise((r) => setTimeout(r, 1000)); continue; }
       console.log('Claimed', job.kind, job.id);
       percentFloor = 0;
+      const stopWatch = watchCancel(job);
       let native;
       try {
         const row = unwrap(await db.from('vistralo_projects').select('*').eq('id', job.project_id).eq('owner_id', job.owner_id).single());
@@ -504,7 +528,7 @@ async function start() {
           // Browser MediaRecorder WebM has no duration in its header, so measure by decoding when needed.
           const info = { duration: await service.media.measureDuration(sourcePath), width: stream.width, height: stream.height };
           if (preview) {
-            const output = await service.media.output(nativeRoot, 'preview', ['-i', sourcePath, '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k']);
+            const output = await service.media.output(nativeRoot, 'preview', ['-i', sourcePath, '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k'], { signal });
             const file = await upload(job, output.file, nativeRoot, files);
             changes = { video: file, duration: output.duration, eventLabel: 'Ready', data: { ...p.data, files, sourceMaster: p.data.sourceMaster || p.video, output: { ...output, file }, mediaInfo: { ...info, duration: output.duration } } };
           } else if (job.kind === 'render') {
@@ -516,6 +540,7 @@ async function start() {
             changes = { video: file, duration: output.duration, eventLabel: 'Ready', data: { ...p.data, files, sourceMaster: p.data.sourceMaster || p.video, sourceSha256: output.sha256, output: { ...output, file }, mediaInfo: { ...info, duration: output.duration } } };
           } else changes = { duration: info.duration, eventLabel: 'Uploaded', data: { ...p.data, files, mediaInfo: info } };
         }
+        checkCancelled();
         const latest = unwrap(await db.from('vistralo_projects').select('document,updated_at').eq('id', job.project_id).single());
         assert(!latest.document.trashed, 'Project moved to Trash during processing');
         const at = new Date().toISOString();
@@ -524,14 +549,24 @@ async function start() {
         unwrap(await db.from('vistralo_jobs').update({ state: 'ready', finished_at: at, progress: {} }).eq('id', job.id));
         console.log('Finished', job.id);
       } catch (error) {
+        if (signal.aborted) {
+          // The app already marked the job cancelled and the project a draft; only repair a project it missed.
+          console.log('Cancelled', job.id);
+          const row = unwrap(await db.from('vistralo_projects').select('document,updated_at').eq('id', job.project_id).maybeSingle());
+          if (row && ['queued', 'processing'].includes(row.document.status)) unwrap(await db.from('vistralo_projects').update({ document: { ...row.document, status: 'draft', error: null }, updated_at: new Date().toISOString() }).eq('id', job.project_id).eq('updated_at', row.updated_at));
+          continue;
+        }
         const message = String(error.message || error).slice(0, 500);
         console.error('Job failed', message);
         unwrap(await db.from('vistralo_jobs').update({ state: 'failed', error: message, finished_at: new Date().toISOString(), progress: {} }).eq('id', job.id));
         const row = unwrap(await db.from('vistralo_projects').select('document,updated_at').eq('id', job.project_id).maybeSingle());
         if (row) unwrap(await db.from('vistralo_projects').update({ document: { ...row.document, status: 'failed', error: message }, updated_at: new Date().toISOString() }).eq('id', job.project_id).eq('updated_at', row.updated_at));
+      } finally {
+        stopWatch();
       }
     }
   } finally {
+    clearInterval(beat);
     await service.close();
   }
 }
