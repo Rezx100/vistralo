@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {Store}=require('../src/core.cjs');const {run}=require('../src/media.cjs');const {Providers,DIRECTOR_SCHEMA,speakable}=require('../src/providers.cjs');
+const {Store}=require('../src/core.cjs');const {run}=require('../src/media.cjs');const {Providers,DIRECTOR_SCHEMA,speakable,builtLine}=require('../src/providers.cjs');
 const {parseHtml,scanScript,siteFacts,detectBlock,publicUrl,evidenceText,groundBuild,matchViewports,writeBrief}=require('../src/buildread.cjs');
 const fixture=name=>fs.readFileSync(path.join(__dirname,'fixtures','buildread',name),'utf8');
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'buildread-test-'));
@@ -65,7 +65,7 @@ function validate(schema,value,at='plan'){
 const samplePlan=()=>({system:{palette:'white, navy hex 0B1F3A',typography:'grotesque sans',shape:'8 pixel radius',iconography:'outline',spacing:'12 column grid',imagery:'ocean photography',motion:'globe rotates',
   stack:{framework:'Webflow',libraries:[{name:'GSAP',role:'animation',confidence:'confirmed',evidence:'running on the page'}],fonts:['Neue Montreal']}},
  stops:[{viewport:1,looking_at:'Hero',notes:'globe 1100 by 900',narration:'United Carriers home page. The globe is a WebGL canvas driven by Three.js. Create src/scenes/Globe.ts and run npm install three. It spins slowly behind a 72 pixel headline.',
-  build:{effect:'rotating globe',technique:'WebGL2 canvas scrubbed by scroll',confidence:'confirmed',libraries:[{name:'GSAP',confidence:'confirmed'}],files:[{path:'src/scenes/Globe.ts',purpose:'globe mesh and render loop'}],setup:['npm install three gsap'],agent_prompt:'Build a 1100 by 900 WebGL globe.'}}],
+  build:{effect:'rotating globe',technique:'WebGL2 canvas scrubbed by scroll',confidence:'confirmed',libraries:[{name:'GSAP',confidence:'confirmed'}],files:[{path:'src/scenes/Globe.ts',purpose:'globe mesh and render loop'}],setup:['npm install three gsap'],agent_prompt:'Build a 1100 by 900 WebGL globe.'},build_line:''}],
  closing:'A calm navy system.',closing_stack:'It is built in Webflow with GSAP, and the globe looks like Three.js.'});
 
 test('director schema is strict-mode complete and accepts a sample plan',()=>{validate(DIRECTOR_SCHEMA,samplePlan());
@@ -82,6 +82,25 @@ test('narration never speaks file paths or shell commands',async()=>{
  assert.match(sent.input[0].content[1].text,/Build evidence[\s\S]*GSAP[\s\S]*Viewport 1: canvas webgl2/);assert.deepEqual(sent.text.format.schema,DIRECTOR_SCHEMA);assert.equal(sent.text.format.strict,true);
  const text=out.stops[0].text;assert.match(text,/WebGL canvas driven by Three\.js/);assert.doesNotMatch(text,/src\/|npm|Globe\.ts/);assert.match(text,/72 pixel headline/);
  assert.equal(out.closingStack,'It is built in Webflow with GSAP, and the globe looks like Three.js.');assert.equal(out.stops[0].build.libraries[0].confidence,'confirmed');assert.deepEqual(out.stops[0].build.evidence,['canvas webgl2 1100x900 in div.hero']);s.close();});
+
+test('each spoken stop says how its section is built, hedged unless the build read proved it',()=>{
+ const build=(confidence,libraries,effect='scroll reveal')=>({effect,technique:'IntersectionObserver fade and rise',confidence,libraries,files:[],setup:[],agent_prompt:''});
+ assert.equal(builtLine({build:build('confirmed',[{name:'GSAP',confidence:'confirmed'}]),build_line:'The cards rise in with GSAP ScrollTrigger.'}),'The cards rise in with GSAP ScrollTrigger.');
+ assert.equal(builtLine({build:build('likely',[{name:'GSAP',confidence:'likely'}]),build_line:'The cards rise in with GSAP ScrollTrigger.'}),'Under the hood, it looks like IntersectionObserver fade and rise, probably GSAP.');
+ assert.equal(builtLine({build:{...build('likely',[]),technique:'Muted autoplay video with a CSS grain overlay.'},build_line:''}),'Under the hood, it looks like muted autoplay video with a CSS grain overlay.');
+ assert.equal(builtLine({build:build('likely',[]),build_line:'The reveal looks like an IntersectionObserver fade.'}),'The reveal looks like an IntersectionObserver fade.');
+ assert.equal(builtLine({build:build('confirmed',[{name:'Three.js',confidence:'confirmed'},{name:'GSAP',confidence:'likely'}]),build_line:''}),'Under the hood: IntersectionObserver fade and rise, with Three.js, and probably GSAP.');
+ assert.equal(builtLine({build:build('confirmed',[],'same as viewport 2'),build_line:'Same reveal.'}),'');assert.equal(builtLine({build:build('likely',[],'static layout'),build_line:''}),'');
+ assert.equal(builtLine({build:build('confirmed',[]),build_line:'This is confirmed by the evidence.'}),'Under the hood: IntersectionObserver fade and rise.');});
+
+test('director asks for a word budget, keeps repeats silent and caps long stops',async()=>{const s=new Store(temp()),p=s.create('Budget','walkthrough'),root=s.dir(p.id);fs.mkdirSync(path.join(root,'evidence'),{recursive:true});fs.writeFileSync(path.join(root,'evidence/a.jpg'),Buffer.from([255,216,255]));
+ const plan=samplePlan(),long=Array.from({length:12},(_,i)=>`Sentence ${i+1} names one more 24 pixel detail.`).join(' ');
+ plan.stops=[{...plan.stops[0],narration:long,build_line:'The globe spins on a WebGL canvas with GSAP.'},{...plan.stops[0],viewport:2,narration:'',build:{...plan.stops[0].build,effect:'same as viewport 1'},build_line:''}];
+ let sent;const providers=new Providers(s,{read:()=>({openai:'k'})},async(url,init)=>{sent=JSON.parse(init.body);return {ok:true,status:200,headers:new Headers(),json:async()=>({model:'gpt-5-mini',output:[{content:[{type:'output_text',text:JSON.stringify(plan)}]}]})};});
+ const out=await providers.directorScript(p.id,{uploadApproved:true,model:'gpt-5-mini',width:1920,height:1080,budget:420,viewports:[{at:0,frame:'evidence/a.jpg',arrival:'start'},{at:4,frame:'evidence/a.jpg',arrival:'scrolled down'}],cap:1,estimate:.2,approved:true,quote:'Test fixture quote'});
+ assert.match(sent.input[0].content[0].text,/under 420 words/);
+ // Without a build read nothing is proven, so the model's plain-fact line gives way to a hedged one.
+ assert.equal(out.stops[1].text,'');assert.match(out.stops[0].text,/Sentence 1 [\s\S]*Sentence 11 [^.]*\. Under the hood, it looks like WebGL2 canvas scrubbed by scroll, probably GSAP\.$/);assert.doesNotMatch(out.stops[0].text,/Sentence 12/);s.close();});
 
 test('build brief lists the stack, then each stop with its prompt',()=>{const root=temp();
  const out=writeBrief(root,{url:BASE,evidence:{status:'ok',finalUrl:BASE},stack:{framework:'Webflow',libraries:[{name:'GSAP',role:'animation',confidence:'confirmed',evidence:'running on the page'}],fonts:['Neue Montreal']},closingStack:'Webflow with GSAP.',

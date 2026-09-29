@@ -21,23 +21,35 @@ async function composeVoiceover(media,root,{video,parts},options={}){
  return {...output,captions:captionsFile,parts:placed.map(({at,length,text})=>({at,length,text}))};}
 // Plays the recording at source speed and freezes on each stop while its narration plays, so the voice never chases the scroll.
 // Pieces are encoded one at a time and joined without re-encoding; a single filter graph would buffer every branch in memory.
+// The concat demuxer takes its stream layout from the first piece, so a piece without video or audio corrupts the whole film.
 async function composeWalkthrough(media,root,{video,stops},options={}){
  assert(Array.isArray(stops)&&stops.length>0&&stops.length<=60,'Use 1–60 narration stops');const source=within(root,video,true),duration=await media.measureDuration(source);
  const dir='chapters/'+id().slice(0,8);fs.mkdirSync(within(root,dir),{recursive:true});
- const lead=.35,tail=.65,frame=1/30,pieces=[],placed=[];let from=0,clock=0;
+ const lead=.35,tail=.65,frame=1/30,pieces=[],placed=[],holds=[];let from=0,clock=0;
+ // MediaRecorder writes a frame only when the screen changes, so a cut inside a still stretch can hold no frame at all.
+ // Every piece is cut from one constant 30 fps copy that runs to the measured end.
+ const steady=within(root,`${dir}/steady.mp4`);
+ await run(media.ffmpeg,['-hide_banner','-nostdin','-y','-i',source,'-map','0:v:0','-vf','fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1,tpad=stop_mode=clone:stop_duration=2','-t',duration.toFixed(3),'-an','-c:v','libx264','-preset','veryfast','-crf','16','-pix_fmt','yuv420p','-g','30',steady],options);
  const encode=async(start,play,hold,audio,delay)=>{const file=within(root,`${dir}/piece-${String(pieces.length).padStart(3,'0')}.mp4`),total=play+hold;
   const audioIn=audio?['-i',audio]:['-f','lavfi','-i','anullsrc=r=48000:cl=stereo'];const ms=Math.round(delay*1000);
-  const graph=[`[0:v]fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1${hold>0?`,tpad=stop_mode=clone:stop_duration=${hold.toFixed(3)}`:''}[v]`,`[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo${audio?`,adelay=${ms}|${ms}`:''},apad[a]`].join(';');
-  await run(media.ffmpeg,['-hide_banner','-nostdin','-y','-ss',start.toFixed(3),'-t',play.toFixed(3),'-i',source,...audioIn,'-filter_complex',graph,'-map','[v]','-map','[a]','-t',total.toFixed(3),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-r','30','-c:a','aac','-b:a','160k','-ar','48000','-ac','2',file],options);pieces.push(file);return total;};
+  const graph=[`[0:v]setpts=PTS-STARTPTS,fps=30${hold>0?`,tpad=stop_mode=clone:stop_duration=${hold.toFixed(3)}`:''}[v]`,`[1:a]asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo${audio?`,adelay=${ms}|${ms}`:''},apad[a]`].join(';');
+  await run(media.ffmpeg,['-hide_banner','-nostdin','-y','-ss',start.toFixed(3),'-t',(play+frame/2).toFixed(3),'-i',steady,...audioIn,'-filter_complex',graph,'-map','[v]','-map','[a]','-t',total.toFixed(3),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-r','30','-c:a','aac','-b:a','160k','-ar','48000','-ac','2',file],options);
+  const streams=(await media.probe(file)).streams||[],length=kind=>Number(streams.find(s=>s.codec_type===kind)?.duration);
+  assert(Math.abs(length('video')-total)<.2&&Math.abs(length('audio')-total)<.2,`Walkthrough piece ${pieces.length} came out without a full picture and sound track`);
+  pieces.push(file);return total;};
  for(const stop of [...stops].sort((a,b)=>a.at-b.at)){assert(typeof stop.text==='string'&&stop.text.length<=5000&&Number.isFinite(stop.at)&&stop.at>=0,'Invalid narration stop');if(!stop.audio)continue;
   const audio=within(root,stop.audio,true),length=Number((await media.probe(audio)).format.duration);assert(length>0&&length<=600,'Narration stop must be between 0 and 600 seconds');
   // At least one frame plays before each hold, so there is always a picture to freeze.
   const at=Math.min(Math.max(stop.at,from),Math.max(0,duration-frame)),play=Math.max(at-from+frame,frame),hold=lead+length+tail;
-  placed.push({at:clock+play+lead,length,text:stop.text,source:Number(at.toFixed(3)),label:stop.label||null});clock+=await encode(from,play,hold,audio,play+lead);from=Math.min(duration,from+play);}
+  placed.push({at:clock+play+lead,length,text:stop.text,source:Number(at.toFixed(3)),label:stop.label||null,ref:stop.ref??null});holds.push({source:from+play,length:hold});clock+=await encode(from,play,hold,audio,play+lead);from=Math.min(duration,from+play);}
  assert(placed.length,'No narration stops have audio');if(duration-from>frame)clock+=await encode(from,duration-from,0,null,0);
  const list=within(root,dir+'/concat.txt');atomic(list,pieces.map(p=>"file '"+p.split(path.sep).join('/').replace(/'/g,"'\\''")+"'").join('\n'));
  const output=await media.output(root,'narrated-walkthrough',['-f','concat','-safe','0','-i',list,'-c','copy'],options);
- for(const p of pieces)try{fs.unlinkSync(p)}catch{}
+ for(const p of [...pieces,steady])try{fs.unlinkSync(p)}catch{}
+ const joined=(await media.probe(within(root,output.file,true))).streams||[],track=kind=>Number(joined.find(s=>s.codec_type===kind)?.duration);
+ assert(Math.abs(track('video')-clock)<.5&&Math.abs(track('audio')-clock)<.5,`Narrated film is ${track('video').toFixed(1)} s of picture and ${track('audio').toFixed(1)} s of sound, expected ${clock.toFixed(1)} s`);
  const captionsFile=output.file.replace('.mp4','.srt');atomic(within(root,captionsFile),placed.map((p,i)=>`${i+1}\n${srtTime(p.at)} --> ${srtTime(p.at+p.length)}\n${p.text.replace(/\r?\n/g,' ')}\n`).join('\n'));
- return {...output,captions:captionsFile,parts:placed.map(({at,length,text,source,label})=>({at,length,text,source,label}))};}
+ // Where a recording moment lands in the film: every hold that ends before it pushes it later.
+ const filmAt=t=>Number((t+holds.filter(h=>h.source<=t+1e-6).reduce((sum,h)=>sum+h.length,0)).toFixed(3));
+ return {...output,captions:captionsFile,filmAt,parts:placed.map(({at,length,text,source,label,ref})=>({at,length,text,source,label,ref}))};}
 module.exports={transcriptPlan,composeNarrated,composeVoiceover,composeWalkthrough,srtTime};
