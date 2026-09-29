@@ -71,6 +71,47 @@ function encode(canvas: HTMLCanvasElement, type: string, quality: number) {
   );
 }
 
+/** Full-width JPEG stills of a remote video at the given times; a time that cannot be read yields null. */
+export async function stills(
+  url: string,
+  times: number[],
+  onEach?: (done: number) => void,
+): Promise<(Blob | null)[]> {
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.crossOrigin = "anonymous";
+  try {
+    const loaded = once(video, "loadeddata", 30000);
+    video.src = url;
+    await loaded;
+    const width = Math.min(1920, video.videoWidth);
+    const height = Math.round((width * video.videoHeight) / video.videoWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context || !width) throw new Error("This browser cannot draw the video.");
+    const end = Number.isFinite(video.duration) ? video.duration - 0.1 : Infinity;
+    const out: (Blob | null)[] = [];
+    for (const [index, time] of times.entries()) {
+      try {
+        await seek(video, Math.max(0, Math.min(time, end)));
+        context.drawImage(video, 0, 0, width, height);
+        out.push(await encode(canvas, "image/jpeg", 0.86));
+      } catch {
+        out.push(null);
+      }
+      onEach?.(index + 1);
+    }
+    return out;
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+  }
+}
+
 /** Draws one representative frame of a video into a small WebP (JPEG where WebP encoding is missing). */
 export async function posterFrame(source: Blob | string): Promise<Blob> {
   const video = document.createElement("video");
