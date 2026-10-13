@@ -1,19 +1,124 @@
 # Vistralo service terms — DRAFT, NOT PUBLISHED
 
-Operator Dynamix LTD, Mirpur 12, Eastern Housing, Road10, House 123, 2nd Floor, Dhaka 1216, Bangladesh · Website https://vistralo.com · Effective `{{EFFECTIVE_DATE}}` · Contact contact@vistralo.com
+Operator Dynamix LTD, Mirpur 12, Eastern Housing, Road10, House 123, 2nd Floor, Dhaka 1216, Bangladesh · Website https://vistralo.com · Contact contact@vistralo.com · Effective `{{EFFECTIVE_DATE}}`
 
-These terms must be adapted to the actual distribution and payment model. The repository's MIT license governs the open-source code and retains its copyright and third-party notices. Separate service terms govern the hosted app; they should not suggest the operator owns customers' recordings.
+**Not approved. Do not publish or link this until a lawyer has reviewed it and every `{{FIELD}}` is filled.** It is an original draft written for Vistralo's own facts as the code shows them on 13 October 2026. It is not legal advice. Sections 12 to 15 in particular are placeholders for counsel, because what may be excluded or limited depends on where customers live.
 
-## Scope to finalize
+The repository's MIT licence covers the open-source code. These terms cover the hosted service at https://app.vistralo.com.
 
-- Service and eligibility: `{{SERVICE_SCOPE}}`, permitted users and any business or customer account roles. Accounts are currently created by the workspace administrator; there is no public signup.
-- Customer content: customer retains rights in original recordings and must have permission to capture websites, voices and personal data. Define the narrow license needed to process, store, render and return content, including optional approved provider transfers.
-- Provider features: identify optional paid OpenAI/HeyGen features, approval/charges, provider limitations, voice rights and failure handling. Do not promise provider-enforced cost caps; current caps are application-side estimates.
-- Acceptable use and privacy: no unauthorized recording, unlawful content, credential capture or instructions that bypass third-party rights. Define abuse reporting and removal process.
-- Storage, deletion, security, support and availability: align with the final privacy notice and actual tested product behavior. Specify `{{RETENTION}}`, `{{SUPPORT}}`, `{{SERVICE_LEVEL_IF_ANY}}`.
-- Pricing, payment, taxes, refund and cancellation terms: paid plans are sold through Paddle, the reseller and merchant of record, which takes payment, adds tax and issues receipts and refunds; say so, link Paddle's buyer terms, and point to the refund policy (`REFUND-POLICY-DRAFT.md`). State what each plan limits (projects, AI walkthroughs a month, recording length, share-link life), that a cancelled plan runs to the end of the paid period, what happens to content over a lower plan's limits (kept; only adding more is refused), and how a failed payment is handled: `{{PLAN_AND_PAYMENT_TERMS}}`. Do not publish a charge term while plans are switched off.
-- Suspension/termination, export window and consequences: `{{ACCOUNT_AND_CONTENT_PROCESS}}`; do not promise one-click account deletion until built.
-- Warranty, liability, consumer-law exceptions, governing law and dispute resolution: `{{COUNSEL_APPROVED_TERMS}}`. Preserve non-waivable US state, EEA and UK consumer rights where applicable.
-- Notices, contact and version history: `{{NOTICE_PROCESS}}`.
+## 1. Who these terms are between
 
-Do not publish this outline as a completed agreement. A customer data processing agreement, subprocessor schedule and transfer terms may be necessary for business customers if Vistralo processes personal data on their behalf; finalize the roles and contracts first.
+These terms are an agreement between Dynamix LTD ("Vistralo", "we") and the person or organisation that opens an account ("you"). If you use Vistralo for an organisation, you confirm that you may accept these terms for it. `{{MINIMUM_AGE_AND_ELIGIBILITY}}`
+
+## 2. What the service is
+
+Vistralo turns a screen recording, an uploaded video, a set of screenshots or a public website into a narrated walkthrough, and for a website also into a written Visual brief. It runs in a web browser. `{{SERVICE_SCOPE_AS_FINALLY_OFFERED}}`
+
+## 3. Your account
+
+You need an email address and a password to open an account, and you must confirm the address before you can sign in. Keep the password to yourself and tell us at contact@vistralo.com if you think someone else has used your account. You are responsible for what is done through it. `{{ACCOUNT_ROLES_IF_TEAMS_ARE_ADDED}}`
+
+## 4. Your content
+
+You keep every right you have in what you record, upload or ask Vistralo to capture, and in the walkthroughs and briefs made from it. Vistralo does not claim ownership of any of it.
+
+You give Vistralo permission to store, copy, process and display that content only as far as needed to run the service for you: to keep your projects, to make the walkthrough or brief you asked for, to show it to you, and to show it to anyone who opens a share link you created. The permission ends when the content is deleted, apart from copies in backups until they age out. `{{BACKUP_RETENTION}}`
+
+You are responsible for having the right to record or upload what you do. That includes permission from people whose faces, voices or personal details appear, and the right to capture a website you do not own. The Acceptable Use Policy and the Copyright and Takedown Policy say more.
+
+## 5. AI narration and your own provider accounts
+
+Narration is written by OpenAI and spoken by HeyGen, using API keys that you supply from your own accounts with those companies. When you ask for narration, Vistralo sends frames from your recording, and for website projects the notes it took from the page's code, to OpenAI, and sends the approved script to HeyGen. The AI and Voice Disclosure lists exactly what is sent.
+
+- OpenAI and HeyGen charge you directly under your agreements with them. Vistralo cannot see, control or refund those charges.
+- The cost limit you set in Vistralo is an estimate that Vistralo checks before it calls a provider. It is not a guarantee of what the provider will bill. Set a budget in each provider's own account as well.
+- Narration is generated by a machine and can be wrong. Read the script before you rely on it or share it. Where Vistralo could not confirm something from a page's code it says "likely".
+- You must have the right to use any voice you select.
+
+## 6. Plans and payment
+
+`{{DO_NOT_PUBLISH_THIS_SECTION_WHILE_PLANS_ARE_SWITCHED_OFF}}`
+
+Vistralo has a free plan and paid plans. The pricing page states what each plan includes: the number of projects, the number of AI walkthroughs and website analyses each calendar month, the longest recording that will be narrated, and how long a share link can last. `{{CONFIRMED_PLAN_NAMES_LIMITS_AND_PRICES}}`
+
+### Paddle is the seller
+
+Paid plans are sold by Paddle.com, which acts as reseller and merchant of record. Paddle takes your payment, adds any tax that applies, sends your receipt and invoice, and handles refunds. Your purchase is also subject to Paddle's own terms for buyers. `{{PADDLE_ENTITY_NAME_AND_LINK_TO_BUYER_TERMS}}` Vistralo never receives or stores your card details.
+
+### Renewal
+
+A paid plan renews at the end of each month or year, at the price shown when you bought it, until you cancel. `{{HOW_PRICE_CHANGES_ARE_NOTIFIED}}`
+
+### Changing plan
+
+A change takes effect straight away. Paddle charges or credits the difference for the rest of the period you have already paid for. A credit of that kind is not a refund.
+
+### Cancelling
+
+You can cancel at any time from Settings, under Billing, which opens Paddle's customer portal. Cancelling stops the next renewal. Your plan stays active until the end of the period you have paid for, and then the account moves to the free plan.
+
+### Failed payments
+
+If a renewal payment fails, Paddle tries again. You keep your plan while it does, and Vistralo shows a notice asking you to update your payment method. If the payment still fails, the subscription is paused or cancelled and the account moves to the free plan. `{{CONFIRM_AGAINST_PADDLE_ACCOUNT_SETTINGS}}`
+
+### After a downgrade
+
+Nothing is deleted when you move to a smaller plan. If you are over the smaller plan's limits you can still open, edit, share and delete what you have; only adding more is refused until you are back under the limit.
+
+### Refunds
+
+The Refund Policy says when a payment is refunded and how to ask.
+
+## 7. Acceptable use
+
+You must follow the Acceptable Use Policy. In short: do not record people or systems without the right to, do not upload unlawful content, do not capture passwords or other credentials, and do not use Vistralo to attack or overload any service, including this one.
+
+## 8. Share links
+
+A share link lets anyone who has it watch the walkthrough or read the brief without an account, until the link expires or you revoke it. Treat a link like the content itself. You can revoke a link at any time, and moving a project to Trash revokes its links.
+
+## 9. Availability and changes
+
+Vistralo is provided as it is and may be unavailable from time to time, for maintenance or for reasons outside our control. A walkthrough is processed in a queue and can take minutes; a job can fail, and a failed or cancelled job does not count against your monthly allowance. `{{SERVICE_LEVEL_IF_ANY}}`
+
+We may change or remove features. If a change materially reduces what a paid plan includes, `{{NOTICE_PERIOD_AND_REMEDY}}`.
+
+## 10. Suspension and closing your account
+
+We may suspend an account that breaks these terms or the Acceptable Use Policy, that puts the service or other customers at risk, or where the law requires it. Where we reasonably can, we will tell you first and give you a chance to put things right. `{{SUSPENSION_PROCESS}}`
+
+You may stop using Vistralo at any time. To close your account and have your content deleted, email contact@vistralo.com from the address on the account. `{{ACCOUNT_DELETION_AND_EXPORT_PROCESS_ONCE_BUILT_AND_TESTED}}` A paid subscription must be cancelled first, or it will be cancelled as part of closing the account. `{{CONFIRM}}`
+
+## 11. Privacy
+
+The Privacy Notice explains what personal data Vistralo handles and why. If you use Vistralo to process personal data on behalf of your own customers or staff, the Data Processing Addendum applies. `{{HOW_THE_DPA_IS_ACCEPTED}}`
+
+## 12. Warranties
+
+`{{COUNSEL: WARRANTY TERMS. STATE WHAT IS PROMISED AND WHAT IS NOT, AND PRESERVE CONSUMER RIGHTS THAT CANNOT BE EXCLUDED IN THE EU, THE UK, US STATES AND ELSEWHERE.}}`
+
+## 13. Liability
+
+`{{COUNSEL: LIMIT OF LIABILITY, THE CAP IF ANY, AND WHAT CANNOT BE LIMITED BY LAW.}}`
+
+## 14. Governing law and disputes
+
+`{{COUNSEL: GOVERNING LAW, COURTS OR ARBITRATION, AND THE RIGHT OF CONSUMERS TO USE THEIR LOCAL COURTS WHERE THE LAW GIVES IT.}}`
+
+## 15. Changes to these terms
+
+`{{NOTICE_PROCESS}}` Earlier versions are kept and can be requested from contact@vistralo.com.
+
+## 16. Contact
+
+Dynamix LTD, Mirpur 12, Eastern Housing, Road10, House 123, 2nd Floor, Dhaka 1216, Bangladesh. Email contact@vistralo.com.
+
+## Facts to check before publishing
+
+1. The company's registered name, registration number and address, and that the mailbox is monitored.
+2. Section 6 matches the pricing page, the Refund Policy and what Paddle's account is configured to do on a failed payment (retry schedule, then pause or cancel).
+3. Paddle's current buyer terms and its requirements for a seller's terms; quote neither without reading the live text.
+4. Section 5 is true in production. The worker reads provider keys from its own environment first and from the customer's settings second (`scripts/local-admin-worker.cjs`, `settingsFor`). If the production worker has `OPENAI_API_KEY` or `HEYGEN_API_KEY` set, narration runs on the operator's keys and this section is wrong.
+5. Account deletion and export exist and have been tested. Until then, section 10 must describe the manual process that will be followed and how long it takes.
+6. Email confirmation is switched on in Supabase Auth, as section 3 says.
+7. Every policy named here exists, is approved and is linked: Privacy Notice, Refund Policy, Acceptable Use Policy, Copyright and Takedown Policy, AI and Voice Disclosure, Data Processing Addendum.
