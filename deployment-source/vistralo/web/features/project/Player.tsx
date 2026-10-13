@@ -11,10 +11,15 @@ export function Playback({
   src,
   label,
   duration: known,
+  seek,
+  onTime,
 }: {
   src: string;
   label: string;
   duration?: number;
+  /** Jump to this many seconds and play. `n` changes each time, so the same place can be asked for twice. */
+  seek?: { at: number; n: number } | null;
+  onTime?: (seconds: number) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const held = useRef(src);
@@ -41,6 +46,16 @@ export function Playback({
     if (node.paused) void node.play();
     else node.pause();
   }
+  useEffect(() => {
+    const node = video.current;
+    if (!seek || !node) return;
+    node.currentTime = seek.at;
+    setTime(seek.at);
+    onTime?.(seek.at);
+    void node.play().catch(() => {
+      /* The browser may refuse to play without a click; the picture has still moved. */
+    });
+  }, [seek?.n]);
   function measured() {
     const node = video.current;
     if (node && Number.isFinite(node.duration) && node.duration > 0)
@@ -56,7 +71,11 @@ export function Playback({
         preload="auto"
         aria-label={label}
         onClick={toggle}
-        onTimeUpdate={() => setTime(video.current?.currentTime || 0)}
+        onTimeUpdate={() => {
+          const now = video.current?.currentTime || 0;
+          setTime(now);
+          onTime?.(now);
+        }}
         onLoadedMetadata={measured}
         onDurationChange={measured}
         onPlay={() => setPlaying(true)}

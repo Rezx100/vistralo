@@ -118,6 +118,33 @@ async function main() {
     await page.getByRole('button', {name:'Grid view', exact:true}).click();
     checks.push('the library shows frames without boxes, the same names as the rail, keyboard selection, the reject mark and both views');
 
+    // A project's page: the player first, Share in the header, then the sheet of numbered screens.
+    await page.locator('.project-card', {hasText:'Homepage motion study'}).locator('.card-title').click();
+    await page.getByRole('heading', {name:'Homepage motion study', level:1, exact:true}).waitFor();
+    assert.equal(await page.evaluate(() => scrollY), 0, 'A page opens at its top');
+    const sheetRegion = page.getByRole('region', {name:/^Screens/});
+    await sheetRegion.waitFor();
+    assert.equal(await sheetRegion.getByRole('listitem').count(), 3);
+    const order = await page.evaluate(() => [document.querySelector('.flow-stage video'), document.querySelector('.screen-sheet')].map(node => node.getBoundingClientRect().top));
+    assert.ok(order[0] < order[1], 'The player comes before the sheet');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.flow-stage video')).backgroundColor), 'rgb(12, 13, 16)', 'The film sits in the black edge');
+    await page.waitForFunction(() => document.querySelector('.flow-stage video').readyState >= 1);
+    await sheetRegion.getByRole('button', {name:'Play screen 2, at 0:04', exact:true}).click();
+    await page.waitForFunction(() => document.querySelector('.flow-stage video').currentTime >= 4);
+    assert.equal(await sheetRegion.locator('li[aria-current="true"] .sheet-number').innerText(), '02', 'The screen being spoken is marked');
+    await page.evaluate(() => document.querySelector('.flow-stage video').pause());
+    await page.locator('.flow-actions').getByRole('button', {name:'Share', exact:true}).click();
+    const shareSheet = page.getByRole('dialog', {name:'Share Homepage motion study', exact:true});
+    await shareSheet.waitFor();
+    await page.keyboard.press('Escape');
+    await shareSheet.waitFor({state:'detached'});
+    await page.setViewportSize({width:390, height:844});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'The project page fits a phone');
+    await page.setViewportSize({width:1440, height:900});
+    await page.getByRole('navigation', {name:'Breadcrumb', exact:true}).getByRole('button', {name:'Projects', exact:true}).click();
+    await page.locator('.project-card').first().waitFor();
+    checks.push('a project opens with the player first, Share in its header, and a sheet of screens that plays from the one chosen');
+
     // Synthetic footage is the only input; no user recording is used.
     const fixture = path.join(temp, 'test-upload.mp4');
     await run('ffmpeg', ['-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-t','2','-c:v','libx264','-pix_fmt','yuv420p',fixture]);

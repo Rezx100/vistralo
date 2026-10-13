@@ -75,6 +75,8 @@
   --frame-edge: 2px;
   --frame-inner-radius: 2px;
   --search-max: 560px;
+  --detail-max: 1200px;
+  --sheet-number-width: 88px;
   --rail-width: 232px;
   --rail-collapsed: 56px;
   --rail-header-height: 56px;

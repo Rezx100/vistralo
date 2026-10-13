@@ -40,6 +40,16 @@ The worker runs on the VPS as systemd unit `vistralo-worker` (`deploy/vistralo-w
 
 Run only one worker.
 
+## Share page
+
+A share link opens the Edge Function `supabase/functions/vistralo-share`. Its HTML is built in `supabase/functions/_shared/share-page.ts`, which `tests/share-page.test.cjs` and `npm run test:web:a11y` exercise. The page has no script; its Content Security Policy allows one stylesheet by hash and video from Supabase storage. Anyone with a link may open it, so deploy the function without token checks:
+
+```sh
+supabase functions deploy vistralo-share --no-verify-jwt
+```
+
+Deploy it whenever either file changes. A merge to `main` deploys the web app only.
+
 ## Providers
 
 The director script uses OpenAI (`VISTRALO_DIRECTOR_MODEL`, default `gpt-5-mini`, falling back on rate limits); speech uses HeyGen. See [docs/PROVIDERS.md](docs/PROVIDERS.md). Legal notices are drafts: [docs/legal](docs/legal/README.md).

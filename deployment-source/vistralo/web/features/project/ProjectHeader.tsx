@@ -3,6 +3,7 @@ import { projectTitle, statusHint } from "../../utils";
 import React from "react";
 import type { Project, WorkspaceAdapter } from "../../contracts";
 import { Icon } from "../../components/Icon";
+import { Button } from "../../components/Controls";
 import { formatDuration } from "../flow-utils";
 import type { ProjectAction } from "./useProjectDetail";
 
@@ -14,6 +15,7 @@ export function ProjectHeader({
   active,
   back,
   downloadKit,
+  onShare,
 }: {
   project: Project;
   voiceText: string;
@@ -22,6 +24,8 @@ export function ProjectHeader({
   active: boolean;
   back: () => void;
   downloadKit: () => Promise<void>;
+  /** Present when there is something a link could show. */
+  onShare?: () => void;
 }) {
   return (
     <header className="flow-detail-heading">
@@ -43,7 +47,7 @@ export function ProjectHeader({
           <h1>{projectTitle(project)}</h1>
           <StatusBadge project={project} />
         </div>
-        <p className="flow-caption flow-muted">
+        <p className="flow-caption flow-muted edge">
           {project.type === "brief" ? "Visual brief" : "Walkthrough"} ·{" "}
           {project.source === "web"
             ? project.sourceLabel || project.url || "Website"
@@ -55,6 +59,11 @@ export function ProjectHeader({
         </p>
       </div>
       <div className="flow-actions">
+        {onShare && (
+          <Button variant="primary" icon="link" onClick={onShare}>
+            Share
+          </Button>
+        )}
         {canDownload && (
           <button
             type="button"
