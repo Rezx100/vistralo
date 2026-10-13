@@ -20,6 +20,9 @@ const UPLOAD_CHUNK = 6 * 1024 * 1024;
 // The worker rebuilds data.files from its own snapshot, so a poster written mid-job may be missing there.
 const ownPoster = (p:Project) => typeof p.thumbnail==='string'&&p.thumbnail.split('/')[1]===p.id&&!p.thumbnail.includes('..');
 const storageEndpoint = () => {const u=new URL(VISTRALO_SUPABASE_URL);if(/^[a-z0-9]+\.supabase\.co$/.test(u.hostname))u.hostname=u.hostname.replace('.supabase.co','.storage.supabase.co');return `${u.origin}/storage/v1/upload/resumable`;};
+/** Signed in, but this account has no workspace: sign-up is closed, or access was never granted. */
+export class NoWorkspaceError extends Error {constructor(message:string){super(message);this.name='NoWorkspaceError';}}
+let completingSignup:Promise<void>|null=null;
 export async function cloudAccount() {
   const client=required();
   const {data}=await client.auth.getSession();
@@ -28,9 +31,17 @@ export async function cloudAccount() {
   const read=()=>client.from('vistralo_accounts').select('*').eq('user_id',user.id).maybeSingle();
   let found=await read();
   // A verified self-serve sign-up has no workspace until this runs; the database refuses it while sign-up is closed.
-  if(!found.error&&!found.data&&billingConfig.signup){unwrap(await client.rpc('vistralo_complete_signup'));found=await read();}
+  if(!found.error&&!found.data&&billingConfig.signup){
+    // The shell asks for the account from several places at once; they share one request.
+    completingSignup??=Promise.resolve(client.rpc('vistralo_complete_signup')).then(result=>{
+      // P0001 is the database function declining (sign-up closed, address not confirmed); anything else is a failed request.
+      if(result.error)throw result.error.code==='P0001'?new NoWorkspaceError(result.error.message):Error(result.error.message);
+    }).finally(()=>{completingSignup=null;});
+    await completingSignup;
+    found=await read();
+  }
   const account=unwrap<{role:string,user_id:string,display_name:string,workspace_name:string}>(found);
-  if(!account) throw Error('Your account has not been granted workspace access.');
+  if(!account) throw new NoWorkspaceError('Your account has not been granted workspace access.');
   return {...account,email:user.email||''};
 }
 export class CloudAdapter implements WorkspaceAdapter {

@@ -1,4 +1,4 @@
-import { cloudConfigured, cloud } from "./cloud";
+import { cloudConfigured, cloud, NoWorkspaceError } from "./cloud";
 import { CloudLogin } from "./features/CloudLogin";
 import React, {
   useCallback,
@@ -339,6 +339,7 @@ export default function App() {
     [sessionStalled, setSessionStalled] = useState(false),
     [sessionAttempt, setSessionAttempt] = useState(0),
     [error, setError] = useState(""),
+    [noWorkspace, setNoWorkspace] = useState<{ reason: string; email: string } | null>(null),
     [collapsed, setCollapsed] = useState(
       () => localStorage.getItem("vistralo-rail") === "collapsed",
     ),
@@ -439,6 +440,7 @@ export default function App() {
       setProjects(rows);
       setAuthenticated(true);
       setError("");
+      setNoWorkspace(null);
       refreshFailures.current = 0;
       return rows;
     } catch (e) {
@@ -448,6 +450,10 @@ export default function App() {
       const transient = /TypeError|NetworkError|Failed to fetch|Load failed|Content-Length/i.test(failure);
       if (transient && ++refreshFailures.current < 2) return [];
       setError(failure);
+      if (e instanceof NoWorkspaceError) {
+        const stored = await cloud?.auth.getSession();
+        setNoWorkspace({ reason: failure, email: stored?.data.session?.user.email || "" });
+      }
       if (
         mode === "cloud" &&
         /sign in to vistralo|auth session missing/i.test(failure)
@@ -912,7 +918,35 @@ export default function App() {
       </main>
     );
   if (mode === "cloud" && (!authenticated || new URLSearchParams(location.search).get("recovery") === "1"))
-    return <CloudLogin onPlans={billing.enabled ? () => go("pricing") : undefined} onReady={async () => { await refresh(); const s = await adapter.settings(); setProfile(p => ({...p,name:String(s.displayName),email:String(s.email),workspace:String(s.name)})); }} />;
+    return <CloudLogin theme={theme} onPlans={billing.enabled ? () => go("pricing") : undefined} onReady={async () => { await refresh(); const s = await adapter.settings(); setProfile(p => ({...p,name:String(s.displayName),email:String(s.email),workspace:String(s.name)})); }} />;
+  // Signed in but with no workspace: the shell would only offer actions that fail.
+  if (mode === "cloud" && noWorkspace)
+    return (
+      <main className="login-page">
+        <div className="login-card">
+          <img src={`/assets/brand/emblem-${theme === "dark" ? "light" : "dark"}.svg`} width="32" height="32" alt="" />
+          <h1>This account has no workspace yet</h1>
+          <p role="alert">{noWorkspace.reason}</p>
+          {noWorkspace.email && <p className="caption">Signed in as {noWorkspace.email}</p>}
+          <button type="button" className="button button-primary" onClick={() => refresh()}>
+            Try again
+          </button>
+          <button
+            type="button"
+            className="button button-ghost"
+            onClick={async () => {
+              await adapter.logout().catch(() => {});
+              setNoWorkspace(null);
+              setError("");
+              setAuthenticated(false);
+              setProjects([]);
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      </main>
+    );
   const current = projects.find((p) => p.id === path[1]),
     view = path[0] || "projects";
   const visible = projects.filter((p) => !p.trashed),

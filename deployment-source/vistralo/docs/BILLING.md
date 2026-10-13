@@ -140,17 +140,20 @@ All off the network: Paddle is the mock client or a fake `fetch`.
 ```sh
 npm test                    # tests/billing.test.cjs: signature, events, API calls, flag, modes, limits, states, worker
 npm run test:web:billing    # browser journey in demo mode with VISTRALO_BILLING=on, plus axe at six sizes
+npm run test:web:signup     # the sign-up form in a cloud build, with Supabase Auth and the database answered by a mock
 ```
+
+The sign-up test builds the app against the project's real Supabase address (the Content Security Policy allows no other) and intercepts every request to it inside the browser, so nothing reaches Supabase. A request the mock has no answer for fails the run. It covers the form's rules, the confirmation email step, the link from that email, a first sign-in on another device, a project with email confirmation off, refusals from Supabase Auth, and the database's sign-up switch being off.
 
 In the demo (`#demo/`, with a flag-on build) Settings → Billing has two demo-only controls: "Preview a billing state" and "Apply plan limits in this demo". They are how each state above can be looked at without Paddle.
 
 ## Not proven yet
 
 - **Nothing has talked to Paddle with real credentials.** The request shapes follow Paddle's documentation as read on 13 October 2026 and are tested against fakes. First real run: step 3 and step 5 above.
-- **The Edge Functions have not been run under Deno.** Their logic is in `_shared/paddle.ts`, which the Node tests cover; the two thin `index.ts` files are unexecuted.
-- **The migration has been run on an in-process Postgres with Supabase-like roles (41 checks), not on the Vistralo project.** The repository's migrations do not match production exactly (the worker calls `vistralo_claim_next_job` and jobs have a `progress` column, neither of which is in `supabase/migrations`), so review the migration against the live schema before applying it. It deliberately adds restrictive policies and triggers instead of rewriting existing policies.
+- **The Edge Functions have not been run under Deno.** Their logic is in `_shared/paddle.ts`, which the Node tests cover; the two thin `index.ts` files are unexecuted. Deno was not installed on the machine that did the follow-up work on 13 October 2026 either, so this is unchanged.
+- **The migration has been run on an in-process Postgres with Supabase-like roles (41 checks), not on the Vistralo project.** The repository's migrations do not match production exactly (the worker calls `vistralo_claim_next_job` and jobs have a `progress` column, neither of which is in `supabase/migrations`), so review the migration against the live schema before applying it. `docs/SCHEMA-DRIFT.md` lists every difference found in the code, what each means for this migration, and read-only queries that record the real schema. It deliberately adds restrictive policies and triggers instead of rewriting existing policies.
 - **The CSP host list is partial** until the probe is rerun with a real token.
-- **Sign-up** has no browser test: it needs Supabase Auth.
+- **Sign-up has only been tested against a mock.** `npm run test:web:signup` proves the form and the app's side of each step. It does not prove Supabase's side: that "Confirm email" is on, that the confirmation email arrives, that `/auth/callback` is an allowed redirect address, or that `vistralo_complete_signup` behaves on the real database. Check those by hand on a preview deployment before opening sign-up.
 
 ## Before live payments
 
