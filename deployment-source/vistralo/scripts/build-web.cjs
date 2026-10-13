@@ -11,6 +11,9 @@ const out = process.env.VISTRALO_WEB_OUT || "server-ui";
     entryPoints: ["web/main.tsx"],
     bundle: true,
     minify: true,
+    // Matches tsconfig.web.json (react-jsx). The classic transform needed `import React` in every
+    // file, which the typecheck could not see was missing.
+    jsx: "automatic",
     loader: { ".css": "empty" },
     target: ["es2022"],
     outfile: path.join(out, "app.js"),
