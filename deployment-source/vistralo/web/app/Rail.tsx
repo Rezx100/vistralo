@@ -342,7 +342,7 @@ export function Rail({
                   onClick: () => setModal("profile"),
                 },
                 {
-                  label: "Preferences",
+                  label: "Settings",
                   icon: "settings",
                   onClick: () => setModal("settings"),
                 },

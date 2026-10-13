@@ -1,9 +1,11 @@
-import React, { useEffect, type Dispatch, type SetStateAction } from "react";
+import React, { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { AppMode, WorkspaceAdapter } from "../contracts";
+import { Button } from "../components/Controls";
 import { ProviderSettings } from "../features/ProviderSettings";
 import { BillingSettings, type Billing } from "../billing/Billing";
+import { ProfileForm, type Profile } from "./ProfileForm";
 import type { Run } from "./projectActions";
-export type SettingsTab = "general" | "ai" | "billing";
+export type SettingsTab = "general" | "profile" | "ai" | "billing";
 export function usePreferences(
   theme: string,
   locale: string,
@@ -18,158 +20,190 @@ export function usePreferences(
     localStorage.setItem("vistralo-direction", direction);
   }, [theme, locale, direction]);
 }
-export function SettingsBody({
+
+/**
+ * Settings is a page with its own address, not a window over the page: General, Profile,
+ * AI narration (where the workspace uses its own provider keys) and Billing (when plans are on).
+ */
+export function SettingsPage({
+  tab,
+  go,
   adapter,
   billing,
   mode,
-  settingsTab,
-  setSettingsTab,
   theme,
   setTheme,
   locale,
   setLocale,
   direction,
   setDirection,
-  health,
-  setHealth,
+  profile,
+  setProfile,
   run,
   notify,
 }: {
+  /** From the address: settings, settings/profile, settings/ai, settings/billing. */
+  tab: string | undefined;
+  go: (to: string) => void;
   adapter: WorkspaceAdapter;
   billing: Billing;
   mode: AppMode;
-  settingsTab: SettingsTab;
-  setSettingsTab: Dispatch<SetStateAction<SettingsTab>>;
   theme: string;
   setTheme: Dispatch<SetStateAction<string>>;
   locale: string;
   setLocale: Dispatch<SetStateAction<string>>;
   direction: string;
   setDirection: Dispatch<SetStateAction<string>>;
-  health: string;
-  setHealth: Dispatch<SetStateAction<string>>;
+  profile: Profile;
+  setProfile: Dispatch<SetStateAction<Profile>>;
   run: Run;
   notify: (s: string, error?: boolean) => void;
 }) {
-  const settingsTabs: Array<["general" | "ai" | "billing", string]> = [
+  const [connection, setConnection] = useState("");
+  const tabs: Array<[SettingsTab, string]> = [
     ["general", "General"],
-    ...(adapter.capabilities.providers
-      ? [["ai", "AI narration"] as ["ai", string]]
-      : []),
-    ...(billing.enabled
-      ? [["billing", "Billing"] as ["billing", string]]
-      : []),
+    ["profile", "Profile"],
+    ...(adapter.capabilities.providers ? [["ai", "AI narration"] as [SettingsTab, string]] : []),
+    ...(billing.enabled ? [["billing", "Billing"] as [SettingsTab, string]] : []),
   ];
+  const current = tabs.some(([id]) => id === tab) ? (tab as SettingsTab) : "general";
+  const open = (id: SettingsTab) => go(id === "general" ? "settings" : `settings/${id}`);
   return (
-    <>
-      {settingsTabs.length > 1 && (
-        <div className="sheet-tabs" role="tablist" aria-label="Preferences">
-          {settingsTabs.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              id={`settings-tab-${id}`}
-              aria-selected={settingsTab === id}
-              aria-controls={`settings-panel-${id}`}
-              onClick={() => setSettingsTab(id)}
-            >
-              {label}
-            </button>
-          ))}
+    <div className="settings-page">
+      <header className="page-header">
+        <div className="page-heading">
+          <h1 tabIndex={-1}>Settings</h1>
         </div>
-      )}
-      {adapter.capabilities.providers && settingsTab === "ai" ? (
-        <div
-          role="tabpanel"
-          id="settings-panel-ai"
-          aria-labelledby="settings-tab-ai"
-        >
+      </header>
+      <div className="tabs" role="tablist" aria-label="Settings">
+        {tabs.map(([id, label], index) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`settings-tab-${id}`}
+            aria-selected={current === id}
+            aria-controls="settings-panel"
+            tabIndex={current === id ? 0 : -1}
+            onClick={() => open(id)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+              event.preventDefault();
+              const step = (event.key === "ArrowRight" ? 1 : -1) * (document.documentElement.dir === "rtl" ? -1 : 1);
+              const next = (index + step + tabs.length) % tabs.length;
+              open(tabs[next][0]);
+              (event.currentTarget.parentElement?.children[next] as HTMLElement)?.focus();
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <section
+        className="settings-panel"
+        role="tabpanel"
+        id="settings-panel"
+        aria-labelledby={`settings-tab-${current}`}
+      >
+        {current === "ai" ? (
           <ProviderSettings adapter={adapter} notify={notify} />
-        </div>
-      ) : billing.enabled && settingsTab === "billing" ? (
-        <div
-          role="tabpanel"
-          id="settings-panel-billing"
-          aria-labelledby="settings-tab-billing"
-        >
+        ) : current === "billing" ? (
           <BillingSettings
             billing={billing}
             locale={locale}
             onPlans={() => billing.act("plans")}
           />
-        </div>
-      ) : (
-        <div
-          className="sheet-stack"
-          {...(settingsTabs.length > 1
-            ? {
-                role: "tabpanel",
-                id: "settings-panel-general",
-                "aria-labelledby": "settings-tab-general",
-              }
-            : {})}
-        >
-          <div className="sheet-group">
-            <label className="sheet-row">
-              <span>Appearance</span>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-            <label className="sheet-row">
-              <span>Language preview</span>
-              <select
-                value={locale}
-                onChange={(e) => setLocale(e.target.value)}
-              >
-                <option value="en">English</option>
-                <option value="de">Deutsch — navigation preview</option>
-              </select>
-            </label>
-            <label className="sheet-row">
-              <span>Text direction</span>
-              <select
-                value={direction}
-                onChange={(e) => setDirection(e.target.value)}
-              >
-                <option value="ltr">Left to right</option>
-                <option value="rtl">Right to left</option>
-              </select>
-            </label>
-            <div className="sheet-row">
-              <span>
-                Studio connection
-                <small>
-                  {mode === "demo"
-                    ? "Demo mode. Changes stay in this browser."
-                    : "Connected to your Vistralo cloud workspace. Access is managed by your administrator."}
-                </small>
-              </span>
-              <button
-                className="button"
-                onClick={() =>
-                  run(async () => {
-                    const value = await adapter.rpc("check");
-                    setHealth(JSON.stringify(value, null, 2));
-                  })
-                }
-              >
-                Check
-              </button>
+        ) : current === "profile" ? (
+          <div className="sheet-stack">
+            <p>
+              Your name and workspace name are shown in this workspace. Changing the
+              email here does not change the address you sign in with.
+            </p>
+            <ProfileForm
+              profile={profile}
+              setProfile={setProfile}
+              adapter={adapter}
+              run={run}
+            />
+            <div>
+              <Button type="submit" form="profile-form" variant="primary">
+                Save profile
+              </Button>
             </div>
           </div>
-          {health && <pre className="sheet-code">{health}</pre>}
-          <p className="caption">
-            Dates use your device’s time zone. Reduced motion and high
-            contrast follow your system preferences.
-          </p>
-        </div>
-      )}
-    </>
+        ) : (
+          <div className="sheet-stack">
+            <div className="sheet-group">
+              <label className="sheet-row">
+                <span>Appearance</span>
+                <select
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+              <label className="sheet-row">
+                <span>Language preview</span>
+                <select
+                  value={locale}
+                  onChange={(e) => setLocale(e.target.value)}
+                >
+                  <option value="en">English</option>
+                  <option value="de">Deutsch (navigation only)</option>
+                </select>
+              </label>
+              <label className="sheet-row">
+                <span>Text direction</span>
+                <select
+                  value={direction}
+                  onChange={(e) => setDirection(e.target.value)}
+                >
+                  <option value="ltr">Left to right</option>
+                  <option value="rtl">Right to left</option>
+                </select>
+              </label>
+              <div className="sheet-row">
+                <span>
+                  Connection
+                  <small role="status">
+                    {connection ||
+                      (mode === "demo"
+                        ? "Demo mode. Changes stay in this browser."
+                        : "Connected to your Vistralo cloud workspace.")}
+                  </small>
+                </span>
+                <button
+                  className="button"
+                  onClick={() =>
+                    run(async () => {
+                      const value = await adapter.rpc("check");
+                      setConnection(connectionText(value));
+                    })
+                  }
+                >
+                  Check
+                </button>
+              </div>
+            </div>
+            <p className="caption">
+              Dates use your device’s time zone. Reduced motion and high
+              contrast follow your system preferences.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
   );
+}
+
+/** What "Check" found, in a sentence. */
+function connectionText(value: any): string {
+  if (value?.database === "connected")
+    return value.worker
+      ? "Connected. The worker that makes walkthroughs is online."
+      : "Connected. The worker that makes walkthroughs is offline, so new walkthroughs will wait.";
+  if (value?.mode === "demo" || value?.demo) return "Demo mode. Nothing leaves this browser.";
+  return "Checked. No problem was reported.";
 }

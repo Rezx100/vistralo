@@ -5,6 +5,10 @@ import type { MenuAction } from "../components/Primitives";
 import { copyText } from "../utils";
 export type Run = (fn: () => Promise<any>, success?: string) => Promise<void>;
 export type ProjectEdit = { kind: string; projects: Project[] };
+/** What Undo would bring back, and the message that offered it. */
+export type Undo = { ids: string[]; message: string };
+/** "1 project", "3 projects". */
+export const counted = (n: number) => `${n} ${n === 1 ? "project" : "projects"}`;
 export function projectActions({
   adapter,
   mode,
@@ -25,7 +29,7 @@ export function projectActions({
   notify: (s: string, error?: boolean) => void;
   refresh: () => Promise<Project[]>;
   go: (to: string) => void;
-  setUndo: Dispatch<SetStateAction<string[] | null>>;
+  setUndo: Dispatch<SetStateAction<Undo | null>>;
   setDeleting: Dispatch<SetStateAction<string[] | null>>;
   setShare: Dispatch<SetStateAction<Project[] | null>>;
   setEdit: Dispatch<SetStateAction<ProjectEdit | null>>;
@@ -61,12 +65,11 @@ export function projectActions({
   }
   async function trash(ids: string[]) {
     await adapter.trash(ids);
-    setUndo(ids);
+    const message = `${counted(ids.length)} moved to Trash`;
+    setUndo({ ids, message });
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setUndo(null), 8000);
-    notify(
-      `${ids.length} ${ids.length === 1 ? "project" : "projects"} moved to Trash`,
-    );
+    notify(message);
     await refresh();
   }
   async function bulk(action: string, ids: string[]) {
@@ -75,7 +78,7 @@ export function projectActions({
       if (action === "trash") await trash(ids);
       if (action === "restore") {
         await adapter.restore(ids);
-        notify(`${ids.length} projects restored`);
+        notify(`${counted(ids.length)} restored`);
         await refresh();
       }
       if (action === "delete") setDeleting(ids);

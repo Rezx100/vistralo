@@ -7,13 +7,11 @@ export function ProfileForm({
   setProfile,
   adapter,
   run,
-  setModal,
 }: {
   profile: Profile;
   setProfile: Dispatch<SetStateAction<Profile>>;
   adapter: WorkspaceAdapter;
   run: Run;
-  setModal: Dispatch<SetStateAction<string>>;
 }) {
   return (
     <form
@@ -26,7 +24,6 @@ export function ProfileForm({
             displayName: profile.name,
             email: profile.email,
           });
-          setModal("");
         }, "Profile saved");
       }}
     >

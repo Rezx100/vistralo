@@ -12,11 +12,15 @@ class ErrorBoundary extends React.Component<
   render() {
     return this.state.error ? (
       <main className="login-page">
-        <div>
+        <div className="login-card" role="alert">
           <h1>Something went wrong</h1>
-          <p>{this.state.error}</p>
-          <button className="button" onClick={() => location.reload()}>
-            Reload workspace
+          <p>
+            Vistralo hit an error it could not recover from. Reloading usually
+            clears it. Nothing you saved is lost.
+          </p>
+          <p className="caption">{this.state.error}</p>
+          <button className="button button-primary" onClick={() => location.reload()}>
+            Reload Vistralo
           </button>
         </div>
       </main>

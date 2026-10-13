@@ -226,7 +226,8 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
       return;
     }
     // Stop saves the project on its own, so a bad address has to be caught before recording starts.
-    if (url.trim()) {
+    // The address field is hidden while "Record my voice" is on, and a hidden field is not checked.
+    if (!microphone && url.trim()) {
       try {
         publicWebsite(url);
       } catch (failure) {

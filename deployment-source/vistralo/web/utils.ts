@@ -90,6 +90,52 @@ export const statusHint = (p: Project) => {
     ? "Saved with your own voice. Trim it or create an MP4 to finish."
     : "Saved without narration. Add an AI voice-over to finish it.";
 };
+/** How long a project may sit in a working state before it is treated as stalled. */
+const STALL_AFTER_MS = { uploading: 60 * 60_000, queued: 30 * 60_000, processing: 90 * 60_000 } as const;
+
+/** "40 minutes", "3 hours", "2 days". */
+export function span(ms: number) {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  if (minutes < 90) return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 36) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const days = Math.round(hours / 24);
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+/**
+ * A project that has been uploading, queued or processing for far longer than that takes.
+ * Nothing has failed, so no error says so; the person just sees it never finish. This names
+ * what probably happened and the one thing that moves it on.
+ */
+export function stalled(p: Project, now = Date.now()) {
+  if (p.trashed) return null;
+  if (p.status !== "uploading" && p.status !== "queued" && p.status !== "processing") return null;
+  const idle = now - Date.parse(p.updated);
+  if (!(idle > STALL_AFTER_MS[p.status])) return null;
+  const quiet = `No change for ${span(idle)}`;
+  if (p.status === "uploading")
+    return {
+      label: quiet,
+      reason: `${quiet}. The upload stopped when its page was closed or the connection dropped.`,
+      next: "Choose the same file again to carry on from where it stopped, or delete the project. If the upload is still running in another tab, leave it.",
+      action: "upload" as const,
+    };
+  if (p.status === "queued")
+    return {
+      label: quiet,
+      reason: `${quiet}. The worker that makes walkthroughs has not picked this up, so it may be offline.`,
+      next: "Cancel the job to get the project back as a draft, then start it again later.",
+      action: "cancel" as const,
+    };
+  return {
+    label: quiet,
+    reason: `${quiet}. The job was started but has not finished or reported an error.`,
+    next: "Cancel the job to get the project back as a draft, then start it again.",
+    action: "cancel" as const,
+  };
+}
+
 export const statusIcon = (p: Project) =>
   ({
     ready: "check",

@@ -28,6 +28,7 @@
   --font-section: 18px;
   --font-title: 28px;
   --font-edge: 12px;
+  --font-pitch: clamp(28px, 3.2vw, 44px);
   --line-caption: 16px;
   --line-label: 18px;
   --line-body: 20px;
@@ -35,6 +36,7 @@
   --line-section: 26px;
   --line-title: 34px;
   --line-edge: 16px;
+  --line-pitch: 1.1;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -76,6 +78,7 @@
   --frame-inner-radius: 2px;
   --search-max: 560px;
   --detail-max: 1200px;
+  --settings-max: 760px;
   --sheet-number-width: 88px;
   --rail-width: 232px;
   --rail-collapsed: 56px;

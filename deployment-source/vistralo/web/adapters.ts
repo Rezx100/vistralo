@@ -432,9 +432,11 @@ class DemoAdapter implements WorkspaceAdapter {
     const all = (await this.list()).sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0));
     return { items: all.slice(offset, offset + limit), total: all.length };
   }
-  async changes(since: string): Promise<ProjectChunk> {
+  // Not every demo edit moves a project's "updated" time (Trash does not), and reading the
+  // whole demo costs nothing, so every poll reports everything.
+  async changes(_since: string): Promise<ProjectChunk> {
     const all = await this.list();
-    return { items: all.filter((p) => p.updated > since), total: all.length };
+    return { items: all, total: all.length };
   }
   async create(input: CreateProjectInput): Promise<Project> {
     validateInput(input);

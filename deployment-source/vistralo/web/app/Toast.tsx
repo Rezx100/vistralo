@@ -1,12 +1,14 @@
 import React, { useEffect, type Dispatch, type SetStateAction } from "react";
 import { Toast as ToastSurface } from "../components/Controls";
+import type { Undo } from "./projectActions";
 export function useToastDismiss(
   message: string,
-  undo: string[] | null,
+  undo: Undo | null,
   setMessage: Dispatch<SetStateAction<string>>,
 ) {
   useEffect(() => {
-    if (!message || undo) return;
+    // The message that offers Undo stays for as long as Undo can be pressed.
+    if (!message || undo?.message === message) return;
     const timer = setTimeout(
       () => setMessage(""),
       Math.min(12000, 5000 + message.length * 40),
@@ -24,7 +26,7 @@ export function Toast({
 }: {
   message: string;
   tone: "success" | "error";
-  undo: string[] | null;
+  undo: Undo | null;
   inert: boolean;
   onUndo: (ids: string[]) => void;
   onDismiss: () => void;
@@ -45,7 +47,11 @@ export function Toast({
           tone={tone}
           message={message}
           inert={inert}
-          action={undo ? { label: "Undo", onClick: () => onUndo(undo) } : undefined}
+          action={
+            undo?.message === message
+              ? { label: "Undo", onClick: () => onUndo(undo.ids) }
+              : undefined
+          }
           onDismiss={onDismiss}
         />
       )}
