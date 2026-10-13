@@ -9,6 +9,7 @@ server-ui/app.js
 server-ui/app.js.LEGAL.txt
 server-ui/style.css
 server-ui/tokens.css
+server-ui/plans.json
 server-ui/index.html
 server-ui/hash-worker.js
 dist-web/

@@ -46,7 +46,7 @@ The price IDs are entered twice (browser build and functions) and must match. `s
 
 ### 4. Decisions only you can make
 
-- **Plan names, limits and prices.** The three plans and their limits below are placeholders I chose so the system could be built and tested. Change them in one migration and `web/billing/plans.ts` (a test fails if the two disagree). Prices live in Paddle; the `$12` and `$36` figures appear only in the test checkout.
+- **Plan names, limits and prices.** The three plans and their limits below are placeholders I chose so the system could be built and tested. Change them in one migration and `web/billing/plans.json` (a test fails if the two disagree). That file is the one place the plan table is written: `web/billing/plans.ts` imports it, the build publishes it as `/plans.json`, and the pricing page on vistralo.com is built from it. Set `"confirmed": true` in it once the names, limits and prices are final; until then the pricing page says they are placeholders. Prices live in Paddle; the `$12` and `$36` figures appear only in the test checkout.
 - **Past due.** A subscription whose payment failed keeps its plan while Paddle retries. To cut access sooner, remove `'past_due'` from `vistralo_effective_plan` and `grantsPlan`.
 - **Legal sign-off** for the refund policy, terms and privacy notice (`docs/legal`).
 

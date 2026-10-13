@@ -5,7 +5,7 @@ const http = require('node:http');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..', 'server-ui');
-const types = {'.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.avif':'image/avif', '.mp4':'video/mp4', '.woff2':'font/woff2', '.md':'text/markdown', '.txt':'text/plain'};
+const types = {'.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.avif':'image/avif', '.mp4':'video/mp4', '.woff2':'font/woff2', '.md':'text/markdown', '.txt':'text/plain', '.json':'application/json'};
 const headers = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'vercel.json'), 'utf8')).headers.flatMap(rule => rule.headers);
 
 // overlay: a second build (for example one with plans switched on) whose files win over server-ui; assets still come from server-ui.

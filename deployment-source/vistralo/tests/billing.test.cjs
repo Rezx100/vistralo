@@ -267,3 +267,15 @@ test('the worker refuses work over the plan, and behaves as before when billing 
   assert.throws(() => checkQuota({...free, jobsUsed:4}, {kind:'website'}), /Settings, under Billing/);
   assert.throws(() => checkDuration(free, 301), /6 minutes long, and the Free plan narrates up to 5/);
 });
+
+test('the plan table is one JSON file that the app imports and publishes for the pricing page', () => {
+  const table = JSON.parse(fs.readFileSync(path.join(root, 'web/billing/plans.json'), 'utf8'));
+  const {PLANS, PLANS_CONFIRMED} = load('web/billing/plans.ts');
+  assert.deepEqual(JSON.parse(JSON.stringify(PLANS)), table.plans, 'the app shows exactly what the file says');
+  assert.equal(PLANS_CONFIRMED, table.confirmed);
+  assert.equal(table.confirmed, false, 'the owner has not confirmed names, limits or prices; flip this only when they have');
+  assert.deepEqual(table.plans.map(plan => plan.id), ['free', 'pro', 'studio']);
+  for (const plan of table.plans) for (const key of ['name', 'summary', 'rank', 'monthlyJobs', 'maxSourceMinutes', 'shareDays', 'testPrice']) assert.ok(key in plan, plan.id + ' has ' + key);
+  assert.match(fs.readFileSync(path.join(root, 'scripts/build-web.cjs'), 'utf8'), /plans\.json/, 'the build publishes the file');
+  assert.match(fs.readFileSync(path.join(root, 'scripts/build-cloud.cjs'), 'utf8'), /'plans\.json'/, 'and the deployed app serves it');
+});

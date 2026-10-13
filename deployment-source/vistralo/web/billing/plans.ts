@@ -1,5 +1,6 @@
 // Plans, limits and the wording for each billing state. No React, no network: the same
 // functions back the cloud adapter, the demo adapter and tests/billing.test.cjs.
+import table from "./plans.json";
 
 export type PlanId = "free" | "pro" | "studio";
 export type PaidPlanId = Exclude<PlanId, "free">;
@@ -26,42 +27,14 @@ export interface Plan extends PlanLimits {
   testPrice: Record<BillingInterval, number>;
 }
 
-/** Mirrors the rows seeded into public.vistralo_plans; the database is what enforces them. */
-export const PLANS: Plan[] = [
-  {
-    id: "free",
-    name: "Free",
-    rank: 0,
-    summary: "Try Vistralo on a few short recordings.",
-    maxProjects: 5,
-    monthlyJobs: 3,
-    maxSourceMinutes: 5,
-    shareDays: 7,
-    testPrice: { month: 0, year: 0 },
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    rank: 1,
-    summary: "For regular walkthroughs and design reviews.",
-    maxProjects: 100,
-    monthlyJobs: 60,
-    maxSourceMinutes: 30,
-    shareDays: 30,
-    testPrice: { month: 12, year: 120 },
-  },
-  {
-    id: "studio",
-    name: "Studio",
-    rank: 2,
-    summary: "For long recordings and heavy monthly use.",
-    maxProjects: null,
-    monthlyJobs: 300,
-    maxSourceMinutes: 120,
-    shareDays: 30,
-    testPrice: { month: 36, year: 360 },
-  },
-];
+/**
+ * The plan table lives in plans.json so that everything shows the same one: this app, the
+ * /plans.json the app publishes, and the pricing page on vistralo.com, which reads that file
+ * when it is built. The database seeds the same limits and is what enforces them.
+ */
+export const PLANS: Plan[] = table.plans as Plan[];
+/** False until the owner confirms the names, limits and prices. */
+export const PLANS_CONFIRMED: boolean = table.confirmed;
 export const planById = (id: string | null | undefined): Plan =>
   PLANS.find((plan) => plan.id === id) || PLANS[0];
 
