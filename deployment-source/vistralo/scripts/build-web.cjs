@@ -7,6 +7,8 @@ const { billingDefines } = require("./billing-env.cjs");
 const out = process.env.VISTRALO_WEB_OUT || "server-ui";
 (async () => {
   fs.mkdirSync(out, { recursive: true });
+  // A build that fails must not leave the last good bundle behind for the browser tests to pass against.
+  fs.rmSync(path.join(out, "app.js"), { force: true });
   await esbuild.build({
     entryPoints: ["web/main.tsx"],
     bundle: true,
@@ -23,7 +25,7 @@ const out = process.env.VISTRALO_WEB_OUT || "server-ui";
   fs.copyFileSync("web/styles/tokens.css", path.join(out, "tokens.css"));
   fs.writeFileSync(
     path.join(out, "style.css"),
-    ["web/styles/app.css", "web/features/features.css", "web/styles/states.css", "web/billing/billing.css"]
+    ["web/styles/app.css", "web/styles/library.css", "web/features/features.css", "web/styles/states.css", "web/billing/billing.css"]
       .filter((f) => fs.existsSync(f))
       .map((f) => fs.readFileSync(f, "utf8"))
       .join("\n"),

@@ -10,6 +10,7 @@ import type { Billing } from "../billing/Billing";
 import { planLabel } from "../billing/plans";
 import type { Profile } from "./ProfileForm";
 import { docsUrl } from "./routing";
+import { projectTitle } from "../utils";
 function RailRow({
   icon,
   label,
@@ -221,7 +222,7 @@ export function Rail({
             <RailRow
               key={p.id}
               icon="pin"
-              label={p.name}
+              label={projectTitle(p, locale)}
               onClick={() => open(p)}
             />
           ))}
@@ -235,7 +236,7 @@ export function Rail({
             <RailRow
               key={p.id}
               icon={p.type === "brief" ? "document" : "video"}
-              label={p.name}
+              label={projectTitle(p, locale)}
               onClick={() => open(p)}
             />
           ))}

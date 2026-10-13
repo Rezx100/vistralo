@@ -4,6 +4,7 @@ import type {
   WorkspaceAdapter,
   AdapterCapabilities,
   Project,
+  ProjectChunk,
   ProjectDetail,
   ProjectPatch,
   CreateProjectInput,
@@ -261,7 +262,50 @@ async function blobStore(
       );
   });
 }
+/**
+ * A large pretend workspace for load tests: set localStorage "vistralo-demo-scale" to a count.
+ * The extra projects exist in memory only; they are never written to storage.
+ */
+export const DEMO_SCALE_KEY = "vistralo-demo-scale";
+const SCALE_PREFIX = "demo-scale-";
+let scaleCache: { count: number; projects: Project[] } | null = null;
+function scaleProjects(): Project[] {
+  const count = Math.min(20000, Math.max(0, Math.floor(Number(localStorage.getItem(DEMO_SCALE_KEY)) || 0)));
+  if (!count) return [];
+  if (scaleCache?.count === count) return scaleCache.projects;
+  const subjects = ["Checkout", "Onboarding", "Pricing page", "Dashboard", "Settings", "Search", "Invoice", "Profile"];
+  const kinds = ["walkthrough", "review", "handoff", "teardown", "demo"];
+  const statuses: Project["status"][] = ["ready", "ready", "ready", "draft", "draft", "failed"];
+  const start = Date.parse("2026-01-01T00:00:00Z");
+  const projects = Array.from({ length: count }, (_, index): Project => {
+    const at = new Date(start - index * 3_600_000).toISOString();
+    const brief = index % 4 === 3;
+    return {
+      id: `${SCALE_PREFIX}${index}`,
+      name: `${subjects[index % subjects.length]} ${kinds[index % kinds.length]} ${index + 1}`,
+      type: brief ? "brief" : "walkthrough",
+      source: brief ? "web" : index % 3 ? "screen" : "upload",
+      sourceLabel: brief ? "example.test" : undefined,
+      status: statuses[index % statuses.length],
+      error: statuses[index % statuses.length] === "failed" ? "This is a generated example of a failed job." : undefined,
+      created: at,
+      updated: at,
+      eventAt: at,
+      eventLabel: "Updated",
+      duration: brief ? undefined : 30 + ((index * 37) % 900),
+      access: "private",
+      data: { demo: true, fictional: true },
+    };
+  });
+  scaleCache = { count, projects };
+  return projects;
+}
 function readDemo(): DemoStore {
+  const stored = readStoredDemo();
+  const extra = scaleProjects();
+  return extra.length ? { ...stored, projects: [...stored.projects, ...extra] } : stored;
+}
+function readStoredDemo(): DemoStore {
   const raw = localStorage.getItem(DEMO_STORAGE_KEY);
   if (!raw) {
     const initial = {
@@ -291,7 +335,10 @@ function readDemo(): DemoStore {
 }
 function writeDemo(value: DemoStore) {
   try {
-    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(value));
+    const kept = value.projects.some((p) => p.id.startsWith(SCALE_PREFIX))
+      ? { ...value, projects: value.projects.filter((p) => !p.id.startsWith(SCALE_PREFIX)) }
+      : value;
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(kept));
   } catch {
     throw new Error(
       "The demo change could not be saved in this browser. Check available storage and try again.",
@@ -379,6 +426,15 @@ class DemoAdapter implements WorkspaceAdapter {
         }
       }
     return clone(store.projects);
+  }
+  // The demo holds everything in the browser, so these exist to exercise the same paging as the cloud.
+  async summaries({ offset, limit }: { offset: number; limit: number }): Promise<ProjectChunk> {
+    const all = (await this.list()).sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0));
+    return { items: all.slice(offset, offset + limit), total: all.length };
+  }
+  async changes(since: string): Promise<ProjectChunk> {
+    const all = await this.list();
+    return { items: all.filter((p) => p.updated > since), total: all.length };
   }
   async create(input: CreateProjectInput): Promise<Project> {
     validateInput(input);

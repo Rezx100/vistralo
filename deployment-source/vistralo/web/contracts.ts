@@ -133,10 +133,26 @@ export interface WorkspaceSettings {
   direction?: "ltr" | "rtl";
   [key: string]: unknown;
 }
+/** Part of the library, with the size of the whole. */
+export interface ProjectChunk {
+  items: Project[];
+  total: number;
+  /** Projects whose job a worker has claimed. A queued project in this list is under way. */
+  running?: string[];
+}
 export interface WorkspaceAdapter {
   readonly mode: AppMode;
   readonly capabilities: AdapterCapabilities;
   list(): Promise<Project[]>;
+  /**
+   * The library, newest change first, a chunk at a time. Items carry what a card shows and
+   * nothing heavier: no brief, script or file list. Open a project to read the rest.
+   */
+  summaries?(range: { offset: number; limit: number }): Promise<ProjectChunk>;
+  /** Projects changed after the given time, and the current size of the library. */
+  changes?(since: string): Promise<ProjectChunk>;
+  /** Addresses for the given projects' thumbnails, keyed by project ID. Asked for one page at a time. */
+  thumbnails?(projects: Project[]): Promise<Record<string, string>>;
   create(input: CreateProjectInput): Promise<Project>;
   update(id: string, patch: ProjectPatch): Promise<Project>;
   duplicate(id: string): Promise<Project>;

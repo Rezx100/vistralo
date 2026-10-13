@@ -1,0 +1,785 @@
+/* The library: a header row, a row of filters, then frames laid straight on the page. See DESIGN.md. */
+
+/* Header row: title and count at the start, search across the middle. */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-block-size: var(--control-primary);
+  margin-block-end: var(--space-6);
+}
+.page-heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+.page-heading h1 {
+  white-space: nowrap;
+}
+.page-count {
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+.page-note {
+  margin-block: calc(var(--space-3) * -1) var(--space-6);
+  color: var(--fg-2);
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  max-inline-size: var(--search-max);
+  min-inline-size: 0;
+  block-size: var(--control-primary);
+  margin-inline-start: auto;
+  padding-inline: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--control-border);
+  border-radius: var(--radius-control);
+  background: var(--bg-elevated);
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.search-field:focus-within {
+  border-color: var(--accent);
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+.search-field input {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+/* The field's own outline shows focus, so the input inside does not draw a second one. */
+.search-field input:focus-visible {
+  outline: none;
+}
+.search-field .icon-button {
+  color: var(--fg-3);
+}
+.search-key {
+  flex-shrink: 0;
+}
+
+/* Filter row: pill tabs for status, then type, source, sort and the view switch. */
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  min-block-size: var(--control-size);
+  margin-block-end: var(--space-6);
+}
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Room for the focus ring, which the scroll container would otherwise clip. */
+  padding: var(--focus-ring);
+  margin: calc(var(--focus-ring) * -1);
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  block-size: var(--control-size);
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg-2);
+  font-size: var(--font-label);
+  line-height: var(--line-label);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.tabs button:hover {
+  background: var(--hover-bg);
+  color: var(--fg-1);
+}
+.tabs button[aria-selected="true"] {
+  background: var(--fg-1);
+  color: var(--bg-page);
+}
+.counter {
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-edge);
+  font-size: var(--font-edge);
+  line-height: var(--line-edge);
+  font-weight: var(--weight-edge);
+  letter-spacing: var(--tracking-edge);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+}
+[aria-selected="true"] > .counter {
+  color: inherit;
+}
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+.merged-filter {
+  display: none;
+}
+.sort-direction {
+  color: var(--fg-3);
+}
+.view-toggle {
+  display: flex;
+  border: var(--border-width) solid var(--control-border);
+  border-radius: var(--radius-control);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.view-toggle .icon-button {
+  border-radius: 0;
+  border: 0;
+}
+.view-toggle [aria-pressed="true"] {
+  background: var(--accent-wash);
+  color: var(--accent-deep);
+}
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: var(--control-primary);
+  padding-inline: var(--space-3) var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--accent-wash);
+}
+.selection-toolbar > label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent-deep);
+  font-weight: var(--weight-medium);
+}
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* The sheet: frames in as many columns as fit, with no box around any of them. */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-compact-min-width)), 1fr));
+  gap: var(--card-row-gap) var(--card-gap);
+}
+.project-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+.project-card:has(.menu) {
+  z-index: 5;
+}
+.card-frame {
+  position: relative;
+  border-radius: var(--radius-frame);
+  outline: var(--ring-width) solid transparent;
+  outline-offset: var(--ring-offset);
+  transition: outline-color var(--motion-fast) var(--motion-ease);
+}
+.project-card:hover .card-frame {
+  outline-color: var(--ring-hover);
+}
+.project-card.is-selected .card-frame {
+  outline-color: var(--accent);
+}
+
+/* A frame: media inside a thin black edge. Blank until there is a picture. */
+.thumbnail {
+  position: relative;
+  display: block;
+  aspect-ratio: var(--thumbnail-ratio);
+  padding: var(--frame-edge);
+  border-radius: var(--radius-frame);
+  background: var(--rebate);
+  overflow: hidden;
+}
+.thumbnail picture,
+.thumbnail img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+.thumbnail img {
+  object-fit: cover;
+  border-radius: var(--frame-inner-radius);
+  opacity: 0;
+  transition: opacity var(--motion-slow) var(--motion-ease);
+}
+.thumbnail img.decoded {
+  opacity: 1;
+}
+.frame-blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  block-size: 100%;
+  padding: var(--space-4);
+  border-radius: var(--frame-inner-radius);
+  background-color: var(--frame-blank);
+  color: var(--fg-2);
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+  text-align: center;
+}
+.frame-host {
+  max-inline-size: 100%;
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-display);
+  font-size: var(--font-section);
+  line-height: var(--line-section);
+  font-weight: var(--weight-display);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+/* A failed frame carries the editor's reject mark: one stroke from corner to corner. */
+.thumbnail.is-rejected .frame-blank {
+  background-image: linear-gradient(
+    to top right,
+    transparent calc(50% - var(--border-width)),
+    var(--danger-fg) calc(50% - var(--border-width)),
+    var(--danger-fg) calc(50% + var(--border-width)),
+    transparent calc(50% + var(--border-width))
+  );
+}
+.thumbnail.is-rejected .frame-blank > span {
+  padding-inline: var(--space-2);
+  background: var(--frame-blank);
+}
+.thumbnail.is-rejected .frame-blank > svg {
+  border-radius: var(--radius-pill);
+  background: var(--frame-blank);
+  box-shadow: 0 0 0 var(--space-1) var(--frame-blank);
+  color: var(--danger-fg);
+}
+.duration,
+.reference-count {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+  padding: var(--space-1) var(--space-2);
+  border-start-start-radius: var(--radius-frame);
+  background: var(--rebate);
+  color: var(--edge-print);
+}
+/* Progress runs along the frame's lower edge. */
+.thumbnail progress {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  inline-size: 100%;
+  block-size: var(--progress-height);
+  border: 0;
+  appearance: none;
+  background: var(--rebate);
+  color: var(--accent);
+}
+.thumbnail progress::-webkit-progress-bar {
+  background: var(--rebate);
+}
+.thumbnail progress::-webkit-progress-value {
+  background: var(--accent);
+}
+.thumbnail progress:indeterminate {
+  background: linear-gradient(to right, var(--rebate) 0 40%, var(--accent) 40% 60%, var(--rebate) 60% 100%);
+  background-size: 250% 100%;
+  animation: frame-working var(--motion-pulse) linear infinite;
+}
+@keyframes frame-working {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+.card-selection,
+.source-link {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  inline-size: var(--selection-target);
+  block-size: var(--selection-target);
+  border-radius: var(--radius-control);
+  background: var(--bg-elevated);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+.card-selection {
+  inset-inline-start: var(--space-2);
+  cursor: pointer;
+}
+.source-link {
+  inset-inline-end: var(--space-2);
+  border: 0;
+  color: var(--fg-1);
+}
+.project-card:hover .card-selection,
+.project-card:hover .source-link,
+.project-card:focus-within .card-selection,
+.project-card:focus-within .source-link,
+.project-card.is-selected .card-selection,
+.project-card.selection-active .card-selection {
+  opacity: 1;
+}
+
+/* Edge print under the frame, then the name. */
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+.card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  min-block-size: var(--line-edge);
+  color: var(--fg-3);
+  /* Each item carries its separator just outside its own start edge. Clipping that edge
+     hides the separator of whichever item begins a line, and nothing else: tooltips open
+     below and toward the end, where the clip is far away. */
+  clip-path: inset(-100vmax -100vmax -100vmax 0);
+}
+[dir="rtl"] .card-meta {
+  clip-path: inset(-100vmax 0 -100vmax -100vmax);
+}
+.card-meta > * {
+  position: relative;
+}
+.card-meta > *::before {
+  content: "·";
+  position: absolute;
+  inset-inline-end: calc(100% + var(--space-2));
+  translate: 50% 0;
+  color: var(--fg-3);
+}
+[dir="rtl"] .card-meta > *::before {
+  translate: -50% 0;
+}
+.source-name,
+.access,
+.event-time {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-frame);
+}
+.source-name svg,
+.source-favicon,
+.access svg {
+  inline-size: var(--icon-small);
+  block-size: var(--icon-small);
+}
+/* A tooltip inside edge print is ordinary text. */
+.edge .tooltip {
+  font-family: var(--font-family);
+  font-stretch: normal;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.event-time .tooltip,
+.source-name .tooltip,
+.access .tooltip {
+  inset-inline-start: 0;
+  transform: none;
+}
+.facepile {
+  display: inline-flex;
+}
+.facepile > span {
+  display: grid;
+  place-items: center;
+  min-inline-size: var(--avatar-small);
+  block-size: var(--avatar-small);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--pressed-bg);
+  color: var(--fg-2);
+}
+.facepile > span::before {
+  content: none;
+}
+
+/* A status mark: a pill on its own, plain edge print inside a card's meta line. */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--status-height);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--pressed-bg);
+  color: var(--fg-2);
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.status-badge svg {
+  inline-size: var(--icon-small);
+  block-size: var(--icon-small);
+}
+.status-ready {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+.status-failed {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+.status-uploading,
+.status-queued,
+.status-processing {
+  background: var(--accent-wash);
+  color: var(--accent-deep);
+}
+.status-processing .icon {
+  animation: rotate var(--motion-pulse) linear infinite;
+}
+.card-meta .status-badge {
+  min-block-size: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+}
+.card-meta .status-badge:not(.status-failed, .status-uploading, .status-queued, .status-processing) {
+  color: inherit;
+}
+
+.card-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+.card-title-row h2 {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: var(--font-card);
+  line-height: var(--line-card);
+  font-weight: var(--weight-semibold);
+}
+.card-title {
+  display: block;
+  border-radius: var(--radius-frame);
+  color: var(--fg-1);
+}
+.card-title:hover {
+  text-decoration: none;
+}
+.card-title > span:first-child {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+/* The whole frame opens the project, not only the words under it. */
+.card-title::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  aspect-ratio: var(--thumbnail-ratio);
+  border-radius: var(--radius-frame);
+}
+.card-title:focus-visible {
+  outline: none;
+}
+.card-title:focus-visible::after {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--ring-offset);
+}
+.card-title.tooltip-host {
+  position: static;
+}
+.card-title .tooltip {
+  inset-block-start: auto;
+  inset-inline-start: 0;
+  transform: none;
+}
+.card-share {
+  min-block-size: var(--control-small);
+  padding-inline: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+.project-card:hover .card-share,
+.project-card:focus-within .card-share,
+.card-retry {
+  opacity: 1;
+}
+.card-menu .icon-button {
+  inline-size: var(--control-small);
+  block-size: var(--control-small);
+}
+.card-detail,
+.error-reason {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+  color: var(--danger-fg);
+}
+
+/* Blank frames while the first read is on its way. */
+.project-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  animation: skeleton var(--motion-shimmer) ease-in-out infinite;
+}
+.project-skeleton > span {
+  inline-size: 40%;
+  block-size: var(--line-edge);
+  border-radius: var(--radius-frame);
+  background: var(--frame-blank);
+}
+.project-skeleton > span:last-child {
+  inline-size: 72%;
+  block-size: var(--line-card);
+}
+.document-skeleton {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+.document-skeleton span {
+  block-size: var(--space-2);
+  border-radius: var(--radius-frame);
+  background: var(--frame-blank);
+}
+
+/* List view: the same projects as rows. */
+.table-scroll {
+  /* Positioned, so the visually hidden heading inside scrolls with the table and cannot widen the page. */
+  position: relative;
+  overflow-x: auto;
+}
+.project-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+.project-table th {
+  padding: var(--space-2) var(--space-3);
+  border-block-end: var(--border-width) solid var(--divider);
+  color: var(--fg-3);
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+  font-weight: var(--weight-medium);
+  text-align: start;
+  white-space: nowrap;
+}
+.project-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-frame);
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+.project-table td {
+  block-size: var(--list-row-height);
+  padding: var(--space-2) var(--space-3);
+  border-block-end: var(--border-width) solid var(--divider);
+  color: var(--fg-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.project-table td:nth-child(3) {
+  min-inline-size: var(--menu-width);
+  white-space: normal;
+}
+.project-table a {
+  color: var(--fg-1);
+  font-weight: var(--weight-medium);
+}
+.project-table .is-selected {
+  background: var(--selected-fill);
+}
+.project-table .menu {
+  inset-inline-end: 0;
+}
+.list-thumbnail {
+  inline-size: var(--list-thumbnail-width);
+}
+.list-thumbnail .thumbnail {
+  inline-size: var(--list-thumbnail-width);
+  padding: var(--border-width);
+}
+.list-thumbnail .thumbnail > :not(picture, .frame-blank),
+.list-thumbnail .frame-blank > * {
+  display: none;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-block-start: var(--space-8);
+  color: var(--fg-3);
+}
+
+/* Nothing to list: why, and the one thing that changes it. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-start: var(--space-6);
+  padding: var(--space-12) var(--space-6);
+  color: var(--fg-3);
+  text-align: center;
+}
+.empty-state h1,
+.empty-state h2 {
+  color: var(--fg-1);
+}
+.empty-state > p {
+  max-inline-size: 56ch;
+}
+.creation-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--card-compact-min-width)), 1fr));
+  gap: var(--space-3);
+  inline-size: 100%;
+  max-inline-size: var(--dialog-wide-width);
+  margin-block-start: var(--space-4);
+  text-align: start;
+}
+.creation-tile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--bg-elevated);
+  color: var(--fg-1);
+  text-align: start;
+}
+.creation-tile:hover {
+  border-color: var(--control-border);
+}
+.creation-tile > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.creation-tile small {
+  color: var(--fg-3);
+}
+
+/* The list drops its least useful columns before it has to scroll sideways. */
+@media (max-width: 1279px) {
+  .filter-select {
+    display: none;
+  }
+  .merged-filter {
+    display: block;
+  }
+  /* The name heading spans two cells, so a heading's number is one less than its column's. */
+  .project-table th:nth-child(6),
+  .project-table td:nth-child(7) {
+    display: none;
+  }
+}
+@media (max-width: 1023px) {
+  .sort-control > span:not(.tooltip, .sort-direction) {
+    display: none;
+  }
+  .project-table td:nth-child(6),
+  .project-table th:nth-child(5),
+  .project-table th:nth-child(3),
+  .project-table td:nth-child(4) {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .page-header {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .search-field {
+    flex-basis: 100%;
+    max-inline-size: none;
+  }
+  .search-key {
+    display: none;
+  }
+  .toolbar-controls {
+    margin-inline-start: 0;
+  }
+  .pagination-page {
+    display: none;
+  }
+}
+/* Without a pointer to hover with, a card's controls are always there. */
+@media (hover: none) {
+  .card-selection,
+  .source-link,
+  .card-share {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .thumbnail progress:indeterminate,
+  .project-skeleton,
+  .status-processing .icon {
+    animation: none;
+  }
+}
+@media (forced-colors: active) {
+  .tabs button[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: var(--accent);
+    color: var(--primary-fg);
+  }
+  .view-toggle [aria-pressed="true"] {
+    outline: var(--focus-width) solid Highlight;
+    outline-offset: calc(var(--focus-width) * -1);
+  }
+  .thumbnail {
+    border: var(--border-width) solid CanvasText;
+  }
+  .thumbnail.is-rejected .frame-blank {
+    background-image: none;
+  }
+}

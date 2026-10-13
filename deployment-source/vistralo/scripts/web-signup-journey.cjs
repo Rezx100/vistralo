@@ -65,7 +65,9 @@ function mockSupabase(host, world) {
       return route.fulfill({status:204, headers:cors});
     }
     if (name === 'POST /rest/v1/rpc/vistralo_billing_state') return json(route, 200, freePlan);
-    if (name === 'GET /rest/v1/vistralo_projects' || name === 'GET /rest/v1/vistralo_jobs') return json(route, 200, []);
+    // An empty workspace. The library asks for a count with each read, which PostgREST answers in Content-Range.
+    if (name === 'GET /rest/v1/vistralo_projects' || name === 'GET /rest/v1/vistralo_jobs') return route.fulfill({status:200, headers:{...cors, 'content-type':'application/json', 'content-range':'*/0'}, body:'[]'});
+    if (name === 'HEAD /rest/v1/vistralo_projects') return route.fulfill({status:200, headers:{...cors, 'content-range':'*/0'}});
     unknown.push(name);
     return json(route, 500, {message:'The sign-up test has no answer for ' + name});
   };
@@ -85,8 +87,11 @@ async function main() {
     fs.mkdirSync(builds[name], {recursive:true});
     execFileSync(process.execPath, ['scripts/build-web.cjs'], {stdio:'inherit', env:{...cloudEnv, ...extra, VISTRALO_WEB_OUT:builds[name]}});
   }
-  // The build refuses to offer sign-up without somewhere to read the terms.
-  assert.throws(() => execFileSync(process.execPath, ['scripts/build-web.cjs'], {stdio:'pipe', env:{...cloudEnv, VISTRALO_SIGNUP:'on', VISTRALO_WEB_OUT:builds.closed}}), /VISTRALO_LEGAL_URL/);
+  // The build refuses to offer sign-up without somewhere to read the terms. It gets a folder of
+  // its own: a refused build clears its output so nothing can be served from it.
+  builds.refused = path.join(evidence, 'app-refused');
+  assert.throws(() => execFileSync(process.execPath, ['scripts/build-web.cjs'], {stdio:'pipe', env:{...cloudEnv, VISTRALO_SIGNUP:'on', VISTRALO_WEB_OUT:builds.refused}}), /VISTRALO_LEGAL_URL/);
+  assert.equal(fs.existsSync(path.join(builds.refused, 'app.js')), false, 'a refused build leaves no bundle behind');
 
   const port = Number(process.env.VISTRALO_UI_TEST_PORT || 8790) + 2;
   const open = await serve(port, builds.open);
@@ -215,6 +220,12 @@ async function main() {
     assert.equal(mock.named('POST /rest/v1/rpc/vistralo_complete_signup').length, 1, 'the workspace is created once');
     assert.match(mock.named('POST /rest/v1/rpc/vistralo_complete_signup')[0].authorization, /^Bearer [\w-]+\.[\w-]+\.[\w-]+$/);
     assert.equal(new URL(page.url()).searchParams.has('code'), false, 'the one-time code is removed from the address');
+    // The library reads card fields out of each project, not whole projects.
+    const listed = mock.named('GET /rest/v1/vistralo_projects')[0].query;
+    assert.match(listed.select, /^id,created_at,updated_at,name:document->>name,/);
+    assert.equal(/(^|,)(\*|document)(,|$)/.test(listed.select), false, 'the whole document is not requested');
+    assert.equal(listed.order, 'updated_at.desc,id.asc');
+    assert.equal(listed.limit, '200');
     await page.locator('.workspace-button small', {hasText:'Free plan'}).waitFor();
     await page.screenshot({path:path.join(evidence, 'new-workspace.png')});
     await page.reload();
