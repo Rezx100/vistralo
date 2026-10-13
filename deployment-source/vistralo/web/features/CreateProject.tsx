@@ -12,7 +12,7 @@ import { ScreenshotsFlow } from "./create/ScreenshotsFlow";
 import { SiteUrlField } from "./create/SiteUrlField";
 import { UploadVideoFlow } from "./create/UploadVideoFlow";
 import { WebsiteFlow } from "./create/WebsiteFlow";
-import { useFloatingTray, useRecordingMeters } from "./create/recorder-effects";
+import { useFloatingTray, useRecordingMeters, useRecordingSignal } from "./create/recorder-effects";
 import { useRecorder } from "./create/useRecorder";
 import { useSaveProject } from "./create/useSaveProject";
 import "./features.css";
@@ -51,7 +51,7 @@ export function CreateProject({
   const [shots, setShots] = useState<File[]>([]);
   const offersVoiceover =
     adapter.mode === "cloud" && adapter.capabilities.providers;
-  const rec = useRecorder({ flow, url, mounted, setError, setFile });
+  const rec = useRecorder({ flow, url, mounted, setError, setFile, onDiscard: onClose });
   const {
     recorder,
     spokenTake,
@@ -167,6 +167,7 @@ export function CreateProject({
   }, [live]);
 
   useFloatingTray(rec);
+  useRecordingSignal(rec);
 
   useEffect(() => {
     if (recording !== "staged" || !file || !autoSave.current) return;
@@ -190,6 +191,11 @@ export function CreateProject({
   }, [activeRecording, busy, source, file, recoverySaved]);
 
   async function close() {
+    // Escape during the count-in stops the take before it starts.
+    if (rec.counting) {
+      rec.cancelCountdown();
+      return;
+    }
     if (activeRecording) {
       setError(
         "Stop the recording before closing. Your recording will be saved for recovery.",

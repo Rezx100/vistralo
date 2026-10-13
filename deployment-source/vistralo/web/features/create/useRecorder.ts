@@ -29,11 +29,16 @@ interface RecorderOptions {
   mounted: RefObject<boolean>;
   setError: (message: string) => void;
   setFile: (file: File | null) => void;
+  /** The take was thrown away on purpose; there is nothing to save or show. */
+  onDiscard: () => void;
 }
+
+/** Seconds counted before the first frame is recorded. */
+export const COUNTDOWN_SECONDS = 3;
 
 export type Recorder = ReturnType<typeof useRecorder>;
 
-export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderOptions) {
+export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }: RecorderOptions) {
   const recorder = useRef<MediaRecorder | null>(null),
     stream = useRef<MediaStream | null>(null),
     displayStream = useRef<MediaStream | null>(null),
@@ -47,7 +52,11 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
     captureRelease = useRef<(() => void) | null>(null),
     starting = useRef(false),
     autoSave = useRef(false),
-    phase = useRef("idle");
+    phase = useRef("idle"),
+    // What stopping the recorder is for: save the take (the default), start it again, or throw it away.
+    takeIntent = useRef<"save" | "restart" | "discard">("save"),
+    wholeFrameTake = useRef(false),
+    countCancel = useRef<(() => void) | null>(null);
   const recordingStarted = useRef(0),
     elapsedBeforePause = useRef(0);
   const [microphone, setMicrophone] = useState(
@@ -58,8 +67,9 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
     [spoken, setSpoken] = useState(false);
   const [requestingCapture, setRequestingCapture] = useState(false);
   const [recording, setRecording] = useState<
-    "idle" | "ready" | "recording" | "paused" | "staging" | "staged"
+    "idle" | "ready" | "countdown" | "recording" | "paused" | "staging" | "staged"
   >("idle");
+  const [count, setCount] = useState(COUNTDOWN_SECONDS);
   const [display, setDisplay] = useState<ChosenDisplay | null>(null),
     [selectArea, setSelectArea] = useState(
       flow === "section" && areaCaptureSupported,
@@ -78,7 +88,9 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
     releaseFloating,
   } = useFloatingControls(mounted);
   phase.current = recording;
-  const live = recording === "recording" || recording === "paused";
+  const counting = recording === "countdown";
+  // The count-in is part of the take: the sheet has already become the tray.
+  const live = counting || recording === "recording" || recording === "paused";
   const [elapsed, setElapsed] = useState(0);
   const [recoverySaved, setRecoverySaved] = useState(false);
   const activeRecording =
@@ -99,9 +111,54 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
     microphone: spoken,
     microphoneLive,
     areaLabel: recordedArea,
+    count: counting ? count : undefined,
     onPause: togglePause,
     onStop: stopRecording,
+    onRestart: restartRecording,
+    onDiscard: discardRecording,
+    onCancelCount: cancelCountdown,
   };
+
+  /** Three, two, one. Resolves false if the count was cancelled or sharing ended first. */
+  function countIn(stale: () => boolean) {
+    return new Promise<boolean>((resolve) => {
+      let left = COUNTDOWN_SECONDS;
+      setCount(left);
+      setRecording("countdown");
+      const finish = (go: boolean) => {
+        window.clearInterval(timer);
+        countCancel.current = null;
+        resolve(go && !stale());
+      };
+      const timer = window.setInterval(() => {
+        if (stale()) return finish(false);
+        left -= 1;
+        if (left <= 0) finish(true);
+        else setCount(left);
+      }, 1000);
+      countCancel.current = () => finish(false);
+    });
+  }
+
+  function cancelCountdown() {
+    countCancel.current?.();
+  }
+
+  /** Throws this take away and counts in again on the same screen, window or tab. */
+  function restartRecording() {
+    const capture = recorder.current;
+    if (!capture || capture.state === "inactive") return;
+    takeIntent.current = "restart";
+    capture.stop();
+  }
+
+  /** Throws this take away and ends the recording. Nothing is saved. */
+  function discardRecording() {
+    const capture = recorder.current;
+    if (!capture || capture.state === "inactive") return;
+    takeIntent.current = "discard";
+    capture.stop();
+  }
 
   function stopRecording() {
     // Stop is clicked in the floating window, which lets this tab come back to the front.
@@ -235,7 +292,8 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
         () => {
           if (recorder.current && recorder.current.state !== "inactive")
             recorder.current.stop();
-          else if (phase.current === "ready" && mounted.current) {
+          else if ((phase.current === "ready" || phase.current === "countdown") && mounted.current) {
+            cancelCountdown();
             cancelSource();
             setError(
               "Screen sharing stopped before recording started. Choose what to record to try again.",
@@ -274,6 +332,7 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
     if (!selected || phase.current !== "ready" || starting.current) return;
     starting.current = true;
     recorder.current = null;
+    wholeFrameTake.current = wholeFrame;
     // A tab picked whole starts at once with no click to open a window from; Chrome's own
     // sharing bar stops it there, and the tray in this tab can still float the controls.
     if (!wholeFrame) void popOutControls();
@@ -390,6 +449,41 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
         if (capture.state !== "inactive") capture.stop();
       };
       capture.onstop = async () => {
+        const intent = takeIntent.current;
+        takeIntent.current = "save";
+        if (intent === "restart") {
+          // Keep the shared screen and the microphone; drop only what this take built on them.
+          crop.current?.stop();
+          crop.current = null;
+          const graphContext = audioContext.current;
+          audioContext.current = null;
+          micAnalyser.current = null;
+          micNodes.current = null;
+          if (graphContext && graphContext.state !== "closed") void graphContext.close();
+          stream.current = null;
+          recorder.current = null;
+          if (!mounted.current || !displayStream.current) return;
+          setElapsed(0);
+          setCount(COUNTDOWN_SECONDS);
+          setRecording("countdown");
+          phase.current = "ready";
+          void beginRecording(wholeFrameTake.current);
+          return;
+        }
+        if (intent === "discard") {
+          stopCaptureTracks();
+          closeFloating();
+          spokenTake.current = false;
+          recorder.current = null;
+          if (mounted.current) {
+            setMicrophoneLive(false);
+            setSpoken(false);
+            setDisplay(null);
+            setRecording("idle");
+            onDiscard();
+          }
+          return;
+        }
         const withVoice = spokenTake.current;
         stopCaptureTracks();
         releaseFloating();
@@ -431,6 +525,13 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
           if (mounted.current) setRecording("staged");
         }
       };
+      // The leader: three, two, one, so the first frame recorded is the one the person meant to show.
+      if (!(await countIn(stale))) {
+        recorder.current = null;
+        if (!stale()) cancelSource();
+        return;
+      }
+      recordingStarted.current = Date.now();
       capture.start(1000);
       setRecording("recording");
     } catch (failure) {
@@ -471,6 +572,9 @@ export function useRecorder({ flow, url, mounted, setError, setFile }: RecorderO
     requestingCapture,
     recording,
     setRecording,
+    counting,
+    count,
+    cancelCountdown,
     display,
     selectArea,
     setSelectArea,

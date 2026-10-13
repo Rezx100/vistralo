@@ -61,23 +61,28 @@ async function main() {
     await rename.waitFor({state:'detached'});
     checks.push('light is the default theme, titles use the wide display face, and no surface is blurred or translucent');
 
-    // The create bar shows its record actions at rest, stays put, and its button opens and closes the menu.
+    // One Record button, in the same place on every page, and beside it every other way to start.
+    const record = page.locator('.rail').getByRole('button', {name:'Record', exact:true});
     const create = page.getByRole('button', {name:'New project', exact:true});
-    const bar = page.getByRole('toolbar', {name:'Create', exact:true});
-    for (const name of ['AI walkthrough', 'Talk-through', 'Section'])
-      assert.equal(await bar.getByRole('button', {name, exact:true}).isVisible(), true, name + ' shows without hovering');
-    await bar.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
-    const resting = await create.boundingBox();
-    await page.mouse.move(resting.x - 60, resting.y - 60);
-    await page.mouse.move(resting.x - 10, resting.y - 10, {steps:5});
-    await page.waitForTimeout(400);
-    assert.deepEqual(await create.boundingBox(), resting, 'The create bar does not move as the pointer approaches');
+    assert.equal(await record.isVisible(), true, 'Record shows without hovering');
+    assert.equal(await record.getAttribute('aria-description'), 'Record an AI walkthrough');
+    assert.equal(await record.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(212, 42, 31)', 'Record is the one red control');
+    assert.equal(await page.locator('.create-dock').count(), 0, 'Nothing floats over the library');
+    const resting = await record.boundingBox();
+    await page.mouse.move(resting.x + 300, resting.y + 300);
+    await page.mouse.move(resting.x + 20, resting.y + 10, {steps:5});
+    assert.deepEqual(await record.boundingBox(), resting, 'Record does not move as the pointer approaches');
     await create.click();
-    await page.getByRole('menuitem', {name:/^Record a talk-through/}).waitFor();
+    for (const name of [/^Record an AI walkthrough/, /^Record a talk-through/, /^Record a section/, /^Narrate a video/, /^Narrate screenshots/, /^Analyze a website/])
+      await page.getByRole('menuitem', {name}).waitFor();
     await create.click();
     await page.getByRole('menu').waitFor({state:'detached'});
     assert.equal(await create.getAttribute('aria-expanded'), 'false', 'A second click closes the New project menu');
-    checks.push('create bar is steady, shows record actions at rest, and New project toggles its menu');
+    await page.keyboard.press('n');
+    await page.getByRole('menuitem', {name:/^Narrate a video/}).waitFor();
+    await page.keyboard.press('Escape');
+    await page.getByRole('menu').waitFor({state:'detached'});
+    checks.push('Record is always in view and steady, and New project (or N) lists all six ways to start');
 
     // The library is a sheet of frames: no box around a project, media in a black edge, facts in edge print.
     const frame = page.locator('.project-card', {hasText:'Homepage motion study'});
@@ -192,6 +197,118 @@ async function main() {
     assert.equal(await large.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await large.close();
     checks.push(`a workspace of ${size} projects shows its first frames in ${firstFrame} ms, renders one page of 48, pages and searches (${searched} ms)`);
+
+    // A real take against a stand-in screen: a canvas plays the part of the shared tab, so the
+    // recorder, its count-in and its controls all run for real. Only the browser's picker is faked.
+    const studio = await browser.newContext({viewport:{width:1440, height:900}, permissions:['clipboard-read', 'clipboard-write']});
+    await studio.addInitScript(() => {
+      window.__pickerCalls = 0;
+      navigator.mediaDevices.getDisplayMedia = async () => {
+        window.__pickerCalls++;
+        const canvas = document.createElement('canvas');
+        canvas.width = 640; canvas.height = 360;
+        const context = canvas.getContext('2d');
+        let frame = 0;
+        const draw = () => { context.fillStyle = frame++ % 2 ? '#203040' : '#402030'; context.fillRect(0, 0, 640, 360); context.fillStyle = '#ffffff'; context.font = '48px sans-serif'; context.fillText(String(frame), 40, 90); };
+        draw();
+        setInterval(draw, 100);
+        const stream = canvas.captureStream(15), track = stream.getVideoTracks()[0], settings = track.getSettings.bind(track);
+        track.getSettings = () => ({...settings(), displaySurface:'browser', width:640, height:360});
+        return stream;
+      };
+    });
+    const take = await studio.newPage();
+    take.on('pageerror', error => errors.push(error.message));
+    take.on('console', message => { if (/Content Security Policy/i.test(message.text())) errors.push(message.text()); });
+    take.setDefaultTimeout(20000);
+    await take.goto(app.origin + '/#demo/projects');
+    await take.locator('.project-card').first().waitFor();
+    const startRecording = () => take.locator('.rail').getByRole('button', {name:'Record', exact:true}).click();
+    const tray = take.getByRole('group', {name:'Recording controls', exact:true});
+    const counting = take.getByText(/^Recording starts in [123]/);
+    const stop = take.getByRole('button', {name:'Stop', exact:true});
+    const icon = () => take.evaluate(() => document.querySelector('link[rel="icon"]').getAttribute('href'));
+    const restingIcon = await icon(), restingTitle = await take.title();
+
+    // One click reaches the picker; then three, two, one before anything is recorded.
+    const clicked = Date.now();
+    await startRecording();
+    await counting.waitFor();
+    assert.equal(await take.evaluate(() => window.__pickerCalls), 1, 'One click on Record asks the browser what to share');
+    assert.match(await take.title(), /^[123] · Recording starts$/, 'The tab says the count-in is running');
+    await stop.waitFor();
+    const counted = Date.now() - clicked;
+    assert.ok(counted >= 2900, `Recording waits for the count-in (${counted} ms)`);
+    assert.equal(await take.title(), 'Recording · Vistralo');
+    assert.match(await icon(), /^data:image\/svg\+xml,/, 'The tab icon turns into a recording dot');
+    await take.evaluate(require('axe-core').source);
+    // Entrance animations fade in; a scan taken mid-fade would measure the fade, not the design.
+    const scanTake = async () => take.evaluate(async () => {
+      await Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
+      return (await axe.run(document, {runOnly:{type:'tag', values:['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']}})).violations.map(v => ({id:v.id, nodes:v.nodes.map(n => n.target)}));
+    });
+    assert.deepEqual(await scanTake(), [], 'The recording controls pass axe');
+    for (const name of ['Pause recording', 'Start over', 'Discard this take'])
+      assert.equal(await tray.getByRole('button', {name, exact:true}).isVisible(), true, name + ' is in view without hovering');
+
+    await tray.getByRole('button', {name:'Pause recording', exact:true}).click();
+    await tray.getByRole('button', {name:'Resume recording', exact:true}).waitFor();
+    assert.equal(await take.title(), 'Paused · Vistralo');
+    await tray.getByRole('button', {name:'Resume recording', exact:true}).click();
+    await tray.getByRole('button', {name:'Pause recording', exact:true}).waitFor();
+
+    // Starting over asks once, in place, and keeps recording if the answer is no.
+    await tray.getByRole('button', {name:'Start over', exact:true}).click();
+    const ask = take.getByRole('alertdialog', {name:'Start over?', exact:true});
+    await ask.getByText('Start over? This take is not kept.', {exact:true}).waitFor();
+    assert.deepEqual(await scanTake(), [], 'The start-over question passes axe');
+    assert.equal(await take.evaluate(() => document.activeElement.textContent), 'Keep recording', 'The safe answer has the focus');
+    await ask.getByRole('button', {name:'Keep recording', exact:true}).click();
+    await stop.waitFor();
+    await take.waitForFunction(() => /0:0[2-9]/.test(document.querySelector('.rec-tray time')?.textContent || ''));
+    await tray.getByRole('button', {name:'Start over', exact:true}).click();
+    await ask.getByRole('button', {name:'Start over', exact:true}).click();
+    await counting.waitFor();
+    await stop.waitFor();
+    assert.equal(await take.evaluate(() => window.__pickerCalls), 1, 'Starting over keeps the same shared screen');
+    assert.match(await take.locator('.rec-tray time').innerText(), /^0:0[01]$/, 'The new take starts from zero');
+
+    // Stop saves the take and opens it, with the share link offered before anything else.
+    await take.waitForTimeout(1200);
+    await stop.click();
+    const saved = take.getByRole('region', {name:'Your recording is saved', exact:true});
+    await saved.waitFor({timeout:30000});
+    assert.match(new URL(take.url()).hash, /^#demo\/project\//, 'Stopping lands on the recording\'s own page');
+    assert.equal(await take.title(), restingTitle, 'The tab title is put back');
+    assert.equal(await icon(), restingIcon, 'The tab icon is put back');
+    assert.deepEqual(await scanTake(), [], 'The saved-recording page passes axe');
+    await saved.getByRole('button', {name:'Copy share link', exact:true}).click();
+    await saved.getByText('Link copied.', {exact:true}).waitFor();
+    const shared = await saved.getByLabel('Share link', {exact:true}).inputValue();
+    assert.match(shared, /#demo\/share\/demo-share-/);
+    assert.equal(await take.evaluate(() => navigator.clipboard.readText()), shared, 'The link is on the clipboard');
+    await saved.getByRole('button', {name:'Dismiss', exact:true}).click();
+    await saved.waitFor({state:'detached'});
+    checks.push(`one click reaches the picker, recording waits ${counted} ms for the count-in, pause and start over work, and stopping opens the recording with its share link`);
+
+    // Discard ends the take and saves nothing. Escape during the count-in stops before it starts.
+    await take.getByRole('navigation', {name:'Breadcrumb', exact:true}).getByRole('button', {name:'Projects', exact:true}).click();
+    await take.locator('.project-card').first().waitFor();
+    const held = await take.locator('.page-count').innerText();
+    await startRecording();
+    await stop.waitFor();
+    await tray.getByRole('button', {name:'Discard this take', exact:true}).click();
+    await take.getByRole('alertdialog', {name:'Discard this take?', exact:true}).getByRole('button', {name:'Discard', exact:true}).click();
+    await take.locator('dialog.flow-dialog').waitFor({state:'detached'});
+    assert.equal(await take.locator('.page-count').innerText(), held, 'A discarded take leaves no project behind');
+    assert.equal(await take.title(), restingTitle);
+    await startRecording();
+    await counting.waitFor();
+    await take.keyboard.press('Escape');
+    await take.getByRole('button', {name:'Choose what to record', exact:true}).waitFor();
+    assert.equal(await stop.count(), 0, 'Nothing is recorded after the count-in is cancelled');
+    await studio.close();
+    checks.push('discarding a take saves nothing, and Escape during the count-in stops before recording starts');
 
     assert.deepEqual(errors, [], 'No uncaught exceptions or CSP violations');
     checks.push('no uncaught exceptions or CSP violations');

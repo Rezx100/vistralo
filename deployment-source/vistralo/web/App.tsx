@@ -20,12 +20,13 @@ import { AppModal } from "./app/AppModal";
 import { DeleteProjectsDialog, EditProjectsDialog } from "./app/ProjectDialogs";
 import { projectActions } from "./app/projectActions";
 import { Rail } from "./app/Rail";
+import { RecordControl, rememberRecordFlow, storedRecordFlow } from "./app/RecordControl";
 import { getMode, route, useHashRoute } from "./app/routing";
 import { NoWorkspaceScreen, RestoringSession } from "./app/SessionScreens";
 import { usePreferences } from "./app/Settings";
 import { ShareDialog } from "./app/ShareDialog";
 import { SharedPage } from "./app/SharedPage";
-import { useSidebarShortcut } from "./app/Shortcuts";
+import { useCreateShortcut, useSidebarShortcut } from "./app/Shortcuts";
 import { Toast, useToastDismiss } from "./app/Toast";
 import { useNavigation } from "./app/useNavigation";
 import { useOpenedProject, useProjectPolling, useRefresh, type Library } from "./app/useProjects";
@@ -55,6 +56,9 @@ export default function App() {
       "general",
     ),
     [flow, setFlow] = useState<CreateFlow | null>(null),
+    [recordFlow, setRecordFlow] = useState<CreateFlow>(storedRecordFlow),
+    // The project saved a moment ago, whose page opens with the share link offered first.
+    [fresh, setFresh] = useState<string | null>(null),
     [share, setShare] = useState<Project[] | null>(null),
     [edit, setEdit] = useState<{ kind: string; projects: Project[] } | null>(
       null,
@@ -164,6 +168,7 @@ export default function App() {
     setMenu,
     setCollapsed,
   });
+  useCreateShortcut(mobileNavigation, setMenu);
   const projectId = path[0] === "project" ? path[1] : undefined;
   const opened = useOpenedProject(
     adapter,
@@ -182,7 +187,12 @@ export default function App() {
         ? "jobs"
         : null;
     if (kind) billing.setUpgrade(kind);
-    else setFlow(next);
+    else {
+      // The Record button starts whichever way of recording was used last.
+      rememberRecordFlow(next);
+      setRecordFlow(storedRecordFlow());
+      setFlow(next);
+    }
   }
   function openBilling() {
     setSettingsTab("billing");
@@ -282,6 +292,8 @@ export default function App() {
         go={go}
         open={open}
         openBilling={openBilling}
+        recordFlow={recordFlow}
+        create={startFlow}
         onSignOut={() =>
           run(async () => {
             await adapter.logout();
@@ -310,6 +322,13 @@ export default function App() {
           />
           <span>Vistralo</span>
           {mode === "demo" && <small>Demo</small>}
+          <RecordControl
+            placement="bar"
+            flow={recordFlow}
+            create={startFlow}
+            menuOpen={menu === "create-bar"}
+            onMenu={(open) => setMenu(open ? "create-bar" : "")}
+          />
         </div>
         <main id="main-content" tabIndex={-1}>
           <NavigationProgress pending={loading} />
@@ -335,6 +354,9 @@ export default function App() {
                 onBack={() => go("projects")}
                 onChanged={() => refresh()}
                 notify={notify}
+                fresh={fresh === current.id}
+                onShare={() => setShare([current])}
+                onFreshDone={() => setFresh(null)}
               />
             ) : loading || opened.pending ? (
               <p>Opening project…</p>
@@ -391,6 +413,7 @@ export default function App() {
           notify={notify}
           onCreated={(p) => {
             setFlow(null);
+            setFresh(p.id);
             sync.upsert(p);
             open(p);
             void refresh();

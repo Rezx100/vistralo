@@ -1,14 +1,8 @@
 import React from "react";
 import type { Project, WorkspaceAdapter } from "../contracts";
 import type { MenuAction } from "../components/Primitives";
-import { CreateDock } from "../components/CreateDock";
 import type { Library } from "../app/useProjects";
-import {
-  createFlows,
-  materialFlows,
-  recordFlows,
-  type CreateFlow,
-} from "./create-flows";
+import type { CreateFlow } from "./create-flows";
 import {
   LibrarySearch,
   LibraryToolbar,
@@ -57,18 +51,9 @@ export function Projects({
 }) {
   const lib = useLibrary({ projects, view, adapter, locale, onShortcuts });
   const labels = libraryLabels(locale);
-  const { selected, current, scope, visible, layout, createMenu, setCreateMenu } = lib;
+  const { selected, current, scope, visible, layout } = lib;
   const waiting = loading && !projects.length;
   const number = (value: number) => value.toLocaleString(locale);
-  // Every way to start, so the menu is complete where the dock's record actions are hidden.
-  const createActions: MenuAction[] = createFlows.map((item) => ({
-    label: item.label,
-    description: item.description,
-    icon: item.icon,
-    key: item.key,
-    separator: item === materialFlows[0],
-    onClick: () => create(item.flow),
-  }));
   const filteredOut = visible.length !== scope.length;
   return (
     <>
@@ -134,20 +119,6 @@ export function Projects({
         />
       )}
       <Pagination lib={lib} locale={locale} />
-      {view !== "trash" && (
-        <CreateDock
-          label={labels.new}
-          items={recordFlows.map((item) => ({
-            label: item.dockLabel,
-            hint: item.description,
-            icon: item.icon,
-            onClick: () => create(item.flow),
-          }))}
-          menuItems={createActions}
-          menuOpen={createMenu}
-          onMenu={setCreateMenu}
-        />
-      )}
     </>
   );
 }

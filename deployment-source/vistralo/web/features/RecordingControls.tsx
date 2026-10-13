@@ -1,10 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { formatDuration } from "./flow-utils";
 import type { CaptureArea } from "./capture";
 
 const meterBars = [0.55, 0.85, 1, 0.75, 0.5];
 
+/**
+ * The controls for a take. Before it starts they count three, two, one. While it runs they
+ * show the time and offer pause, start over, discard and stop. Starting over and discarding
+ * both lose the take, so each asks once, in place, while the recording carries on.
+ */
 export function RecordingTray({
   paused,
   elapsed,
@@ -15,9 +20,13 @@ export function RecordingTray({
   floating = false,
   canPopOut = false,
   notice,
+  count,
   onPause,
   onStop,
   onPopOut,
+  onRestart,
+  onDiscard,
+  onCancelCount,
 }: {
   paused: boolean;
   elapsed: number;
@@ -29,15 +38,30 @@ export function RecordingTray({
   canPopOut?: boolean;
   /** Shown instead of the controls before recording starts. */
   notice?: string;
+  /** Seconds left before recording starts. Present only during the count-in. */
+  count?: number;
   onPause: () => void;
   onStop: () => void;
   onPopOut?: () => void;
+  onRestart?: () => void;
+  onDiscard?: () => void;
+  onCancelCount?: () => void;
 }) {
+  const [asking, setAsking] = useState<"restart" | "discard" | null>(null);
+  const keep = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (asking) keep.current?.focus();
+  }, [asking]);
+  // A new take, or the count-in before one, starts with nothing being asked.
+  useEffect(() => {
+    if (count !== undefined) setAsking(null);
+  }, [count]);
   const level = microphoneLive && !paused ? Math.min(1, micLevel / 60) : 0;
+  const frame = `rec-tray ${floating ? "is-floating" : ""}`;
   if (notice)
     return (
       <div
-        className={`rec-tray is-waiting ${floating ? "is-floating" : ""}`}
+        className={`${frame} is-waiting`}
         role="status"
         aria-label="Recording controls"
       >
@@ -47,9 +71,73 @@ export function RecordingTray({
         </p>
       </div>
     );
+  if (count !== undefined)
+    return (
+      <div
+        className={`${frame} is-counting`}
+        role="group"
+        aria-label="Recording controls"
+      >
+        <p className="rec-status" role="timer" aria-live="assertive" aria-atomic="true">
+          <span className="rec-count" key={count} aria-hidden="true">
+            {count}
+          </span>
+          <span>
+            Recording starts in {count}
+            <span className="sr-only"> {count === 1 ? "second" : "seconds"}</span>
+          </span>
+        </p>
+        {onCancelCount && (
+          <button type="button" className="button button-ghost rec-cancel" onClick={onCancelCount}>
+            Cancel
+          </button>
+        )}
+      </div>
+    );
+  if (asking)
+    return (
+      <div
+        className={`${frame} is-asking ${paused ? "is-paused" : ""}`}
+        role="alertdialog"
+        aria-label={asking === "restart" ? "Start over?" : "Discard this take?"}
+      >
+        <p className="rec-status">
+          <span className="rec-dot" aria-hidden="true" />
+          <span>
+            {asking === "restart"
+              ? "Start over? This take is not kept."
+              : "Discard this take? Nothing is saved."}
+          </span>
+        </p>
+        <button
+          type="button"
+          className="button rec-answer"
+          onClick={() => {
+            setAsking(null);
+            (asking === "restart" ? onRestart : onDiscard)?.();
+          }}
+        >
+          {asking === "restart" ? "Start over" : "Discard"}
+        </button>
+        <button
+          ref={keep}
+          type="button"
+          className="button button-ghost rec-answer"
+          onClick={() => setAsking(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              setAsking(null);
+            }
+          }}
+        >
+          Keep recording
+        </button>
+      </div>
+    );
   return (
     <div
-      className={`rec-tray ${floating ? "is-floating" : ""} ${paused ? "is-paused" : ""}`}
+      className={`${frame} ${paused ? "is-paused" : ""}`}
       role="group"
       aria-label="Recording controls"
     >
@@ -94,6 +182,28 @@ export function RecordingTray({
           >
             <Icon name={paused ? "play" : "pause"} />
           </button>
+          {onRestart && (
+            <button
+              type="button"
+              className="rec-icon-button"
+              onClick={() => setAsking("restart")}
+              aria-label="Start over"
+              title="Start over"
+            >
+              <Icon name="restore" />
+            </button>
+          )}
+          {onDiscard && (
+            <button
+              type="button"
+              className="rec-icon-button"
+              onClick={() => setAsking("discard")}
+              aria-label="Discard this take"
+              title="Discard"
+            >
+              <Icon name="trash" />
+            </button>
+          )}
           {canPopOut && onPopOut && (
             <button
               type="button"

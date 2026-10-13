@@ -25,7 +25,7 @@ export function useFloatingControls(mounted: RefObject<boolean>) {
     if (trayWindow.current || floatingWanted.current || !floatingControlsSupported) return;
     floatingWanted.current = true;
     try {
-      const opened = await openFloatingWindow(420, 72);
+      const opened = await openFloatingWindow(480, 72);
       if (!opened) {
         floatingWanted.current = false;
         return;
