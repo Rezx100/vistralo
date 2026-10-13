@@ -28,12 +28,13 @@ import { SharedPage } from "./app/SharedPage";
 import { useSidebarShortcut } from "./app/Shortcuts";
 import { Toast, useToastDismiss } from "./app/Toast";
 import { useNavigation } from "./app/useNavigation";
-import { useProjectPolling, useRefresh } from "./app/useProjects";
+import { useOpenedProject, useProjectPolling, useRefresh, type Library } from "./app/useProjects";
 import { useSessionRestore } from "./app/useSession";
 export default function App() {
   const [mode, setMode] = useState<AppMode>(getMode),
     [path, setPath] = useState(route),
     [projects, setProjects] = useState<Project[]>([]),
+    [library, setLibrary] = useState<Library>({ total: 0, complete: false }),
     [loading, setLoading] = useState(true),
     [authenticated, setAuthenticated] = useState(false),
     [sessionReady, setSessionReady] = useState(() => getMode() !== "cloud"),
@@ -103,11 +104,12 @@ export default function App() {
     },
   });
   useToastDismiss(message, undo, setMessage);
-  const refresh = useRefresh({
+  const { refresh, sync } = useRefresh({
     adapter,
     mode,
     notify,
     setProjects,
+    setLibrary,
     setAuthenticated,
     setError,
     setNoWorkspace,
@@ -134,6 +136,7 @@ export default function App() {
   });
   useProjectPolling({
     refresh,
+    sync,
     adapter,
     mode,
     sessionReady,
@@ -161,6 +164,13 @@ export default function App() {
     setMenu,
     setCollapsed,
   });
+  const projectId = path[0] === "project" ? path[1] : undefined;
+  const opened = useOpenedProject(
+    adapter,
+    projectId,
+    projectId ? projects.find((p) => p.id === projectId) : undefined,
+    !loading && (mode === "demo" || authenticated),
+  );
   function go(to: string) {
     location.hash = (mode === "demo" ? "demo/" : "") + to;
   }
@@ -225,7 +235,7 @@ export default function App() {
         }}
       />
     );
-  const current = projects.find((p) => p.id === path[1]),
+  const current = opened.project,
     view = path[0] || "projects";
   return (
     <div
@@ -326,7 +336,7 @@ export default function App() {
                 onChanged={() => refresh()}
                 notify={notify}
               />
-            ) : loading ? (
+            ) : loading || opened.pending ? (
               <p>Opening project…</p>
             ) : (
               <section className="empty-state">
@@ -352,6 +362,7 @@ export default function App() {
               onShare={(p) => setShare([p])}
               bulk={bulk}
               loading={loading}
+              library={library}
               onShortcuts={() => setModal("shortcuts")}
             />
           )}
@@ -380,7 +391,7 @@ export default function App() {
           notify={notify}
           onCreated={(p) => {
             setFlow(null);
-            setProjects((rows) => [p, ...rows.filter((row) => row.id !== p.id)]);
+            sync.upsert(p);
             open(p);
             void refresh();
           }}

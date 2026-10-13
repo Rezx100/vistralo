@@ -54,6 +54,17 @@ const { serve } = require('./static-server.cjs');
       assert.ok(metrics.documentWidth<=width,name+' must not overflow horizontally');
       if(name==='desktop'||name==='laptop') assert.ok(metrics.firstRowBottom<=height,name+' first row must be fully visible');
       if(name==='tablet-icon-rail') for(const label of [/^Demo workspace/,/^Demo user/]) assert.equal(await page.locator('.rail').getByRole('button',{name:label}).count(),1,label+' must name its icon-rail button');
+      // The same library with a selection, and as a list: both must pass axe and fit the width.
+      const rescan = async () => page.evaluate(async () => (await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})));
+      await page.locator('.project-card .card-selection input').first().check({force:true});
+      await page.getByText('1 selected',{exact:true}).waitFor();
+      assert.deepEqual(await rescan(),[],name+' with a project selected');
+      await page.getByRole('button',{name:'Clear selection',exact:true}).click();
+      await page.getByRole('button',{name:'List view',exact:true}).click();
+      await page.locator('.project-table tbody tr').first().waitFor();
+      assert.deepEqual(await rescan(),[],name+' list view');
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),name+' list view must not overflow the page');
+      await page.screenshot({path:path.join(output,name+'-list.png'),fullPage:true});
       assert.deepEqual(errors,[]);
       await context.close();
     }

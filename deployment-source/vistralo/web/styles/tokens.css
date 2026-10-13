@@ -71,6 +71,10 @@
   --focus-offset: 2px;
   --ring-width: 2px;
   --ring-offset: 3px;
+  /* The black edge of a frame, and the corner left inside it. */
+  --frame-edge: 2px;
+  --frame-inner-radius: 2px;
+  --search-max: 560px;
   --rail-width: 232px;
   --rail-collapsed: 56px;
   --rail-header-height: 56px;
@@ -183,6 +187,9 @@
   --card-pressed-bg: color-mix(in srgb, var(--bg-card), black 6%);
   /* The black edge around every piece of media, and the type printed on it. Same in both themes. */
   --rebate: #0c0d10;
+  /* A frame with no picture yet. */
+  --frame-blank: #e8eaee;
+  --ring-hover: color-mix(in srgb, var(--accent) 45%, transparent);
   --edge-print: #d7dae2;
   --edge-print-dim: #9aa0ae;
   --media-letterbox: #0c0d10;
@@ -254,6 +261,8 @@
   --card-border-hover: rgb(255 255 255 / 16%);
   --hover-bg: rgb(255 255 255 / 6%);
   --pressed-bg: rgb(255 255 255 / 10%);
+  --frame-blank: #1b1e27;
+  --ring-hover: color-mix(in srgb, var(--accent-soft) 55%, transparent);
   --card-hover-bg: color-mix(in srgb, var(--bg-card), white 4%);
   --card-pressed-bg: color-mix(in srgb, var(--bg-card), black 2%);
   --accent-hover: #5a61d8;
@@ -337,6 +346,8 @@
     --overlay: Canvas;
     --overlay-fg: CanvasText;
     --rebate: Canvas;
+    --frame-blank: Canvas;
+    --ring-hover: Highlight;
     --edge-print: CanvasText;
     --edge-print-dim: CanvasText;
     --primary-fg: HighlightText;

@@ -106,85 +106,47 @@ export function StatusBadge({ project: p }: { project: Project }) {
   );
 }
 
-function BriefPreview({ project: p }: { project: Project }) {
-  const brief = typeof p.data.brief === "string" ? p.data.brief : "";
-  const headings = [...brief.matchAll(/^#{1,3}\s+(.+)$/gm)].map(
-    (match) => match[1],
-  );
-  const body = brief
-    .replace(/^#{1,6}.*$/gm, "")
-    .replace(/[*_`]/g, "")
-    .trim()
-    .slice(0, 180);
-  return (
-    <div className="brief-preview" aria-hidden="true">
-      <div className="brief-kicker">
-        <Icon name="document" size={16} />
-        Visual brief
-      </div>
-      <strong>{headings[0] || p.name}</strong>
-      <div className="brief-rule" />
-      {brief ? (
-        <>
-          <b>{headings[1] || "Overview"}</b>
-          <p>{body}</p>
-          {headings[2] && <b>{headings[2]}</b>}
-          <div className="brief-reference-grid">
-            <span />
-            <span />
-            <span />
-          </div>
-        </>
-      ) : (
-        <p>
-          {p.status === "failed"
-            ? "Analysis could not be completed."
-            : p.status === "ready"
-              ? "Open this project to read the visual brief."
-              : "Your brief will appear here when it is ready."}
-        </p>
-      )}
-    </div>
-  );
+/** What a frame says when there is no picture to show yet. */
+function blankLabel(p: Project, failed: boolean) {
+  if (p.status === "uploading") return "Transferring your recording";
+  if (p.status === "queued") return "Waiting for a worker";
+  if (p.status === "processing")
+    return p.type === "brief" ? "Reading the website" : "Finding each screen";
+  if (p.status === "failed" || failed) return "Preview unavailable";
+  if (p.type === "brief")
+    return p.status === "ready" ? "" : "The brief appears here when it is ready";
+  return !p.video && !p.duration ? "No recording yet" : "";
 }
 
-export function Thumbnail({ project: p }: { project: Project }) {
+/**
+ * A frame: one piece of media inside a thin black edge. When there is no picture yet it is
+ * a blank, undeveloped frame that says what is happening, and its lower edge shows progress.
+ * `src` is the address to load when the library resolves thumbnails a page at a time; leave
+ * it out to use the project's own thumbnail.
+ */
+export function Thumbnail({ project: p, src }: { project: Project; src?: string }) {
   const [decoded, setDecoded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const image = src === undefined ? p.thumbnail : src;
   useEffect(() => {
     setDecoded(false);
     setFailed(false);
-  }, [p.thumbnail]);
-  const processing = p.status === "processing" || p.status === "queued";
-  const variants = thumbnailVariants(p);
+  }, [image]);
+  const working = p.status === "processing" || p.status === "queued";
+  const variants = src === undefined ? thumbnailVariants(p) : [];
   const duration =
     Number.isFinite(p.duration) && (p.duration || 0) > 0
       ? Math.floor(p.duration!)
       : 0;
   const hasImage =
-    !!p.thumbnail && !failed && !processing && p.status !== "uploading";
+    !!image && !failed && !working && p.status !== "uploading" && p.status !== "failed";
+  const rejected = p.status === "failed";
+  const label = blankLabel(p, failed);
   return (
-    <div className={`thumbnail thumbnail-${p.type}`}>
-      <span className="thumbnail-brackets" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-        <i />
-      </span>
-      {processing ? (
-        <div className="document-skeleton" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
-      ) : p.status === "failed" ? (
-        <div className="thumbnail-failed">
-          <Icon name="warning" size={32} />
-          <span>Preview unavailable</span>
-        </div>
-      ) : hasImage ? (
+    <div
+      className={`thumbnail thumbnail-${p.type} ${hasImage ? "has-image" : "is-blank"} ${rejected ? "is-rejected" : ""}`}
+    >
+      {hasImage ? (
         <picture>
           {["image/avif", "image/webp"].map((type) => {
             const set = variants
@@ -202,7 +164,7 @@ export function Thumbnail({ project: p }: { project: Project }) {
             ) : null;
           })}
           <img
-            src={p.thumbnail}
+            src={image}
             alt=""
             loading="lazy"
             decoding="async"
@@ -220,28 +182,35 @@ export function Thumbnail({ project: p }: { project: Project }) {
             className={decoded ? "decoded" : ""}
           />
         </picture>
-      ) : p.type === "brief" ? (
-        <BriefPreview project={p} />
       ) : (
-        <div className="poster-fallback" aria-hidden="true">
-          <Icon name={p.source === "screen" ? "video" : "upload"} size={32} />
-          {(p.status === "uploading" || failed || (!p.video && !p.duration)) && (
-            <span>
-              {p.status === "uploading"
-                ? "Transferring your recording"
-                : failed
-                  ? "Preview unavailable"
-                  : "No recording yet"}
-            </span>
+        <div className="frame-blank" aria-hidden="true">
+          {p.type === "brief" && !working && !rejected ? (
+            <strong className="frame-host">{sourceText(p)}</strong>
+          ) : (
+            <Icon
+              name={
+                rejected
+                  ? "warning"
+                  : p.status === "uploading"
+                    ? "upload"
+                    : working
+                      ? "clock"
+                      : p.source === "screen"
+                        ? "video"
+                        : "upload"
+              }
+              size={24}
+            />
           )}
+          {label && <span>{label}</span>}
         </div>
       )}
       {p.type === "walkthrough" &&
         duration > 0 &&
-        !processing &&
+        !working &&
         p.status !== "uploading" && p.status !== "failed" && (
           <time
-            className="duration"
+            className="duration edge"
             dateTime={`PT${duration}S`}
             aria-label={durationLabel(duration)}
           >
@@ -249,12 +218,7 @@ export function Thumbnail({ project: p }: { project: Project }) {
           </time>
         )}
       {p.type === "brief" && p.status === "ready" && (
-        <span className="reference-count">{p.references || 0} refs</span>
-      )}
-      {p.type === "walkthrough" && p.status === "ready" && (
-        <span className="play-overlay" aria-hidden="true">
-          <Icon name="play" />
-        </span>
+        <span className="reference-count edge">{p.references || 0} refs</span>
       )}
       {p.status === "uploading" && (
         <progress
@@ -263,7 +227,7 @@ export function Thumbnail({ project: p }: { project: Project }) {
           aria-label={`Upload progress for ${p.name}`}
         />
       )}
-      {processing && (
+      {working && (
         <progress
           aria-label={`${p.status === "queued" ? "Queued" : p.type === "brief" ? "Analyzing site" : "Processing video"}: ${p.name}`}
         />
@@ -274,6 +238,8 @@ export function Thumbnail({ project: p }: { project: Project }) {
 
 type ProjectCardProps = {
   project: Project;
+  /** Resolved by the library for the page on screen; see Thumbnail. */
+  thumbnail?: string;
   selected: boolean;
   anySelected: boolean;
   onSelect: (event: any) => void;
@@ -288,8 +254,13 @@ type ProjectCardProps = {
   href: string;
 };
 
+/**
+ * One project in the library: its frame, a line of edge print (type, state, when), then its
+ * name. There is no box around the three; the frame is the object.
+ */
 export function ProjectCard({
   project: p,
+  thumbnail,
   selected,
   anySelected,
   onSelect,
@@ -332,75 +303,44 @@ export function ProjectCard({
       }}
       onKeyDown={onKeyDown}
     >
-      <Thumbnail project={p} />
-      <label className="card-selection tooltip-host">
-        <input
-          type="checkbox"
-          aria-label={`Select ${p.name}`}
-          checked={selected}
-          onChange={(event) => onSelect(event.nativeEvent)}
-        />
-        <span className="tooltip" role="tooltip">
-          Select project
-        </span>
-      </label>
-      {destination && (
-        <a
-          className="source-link icon-button tooltip-host"
-          href={destination}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Open ${sourceText(p)} in a new tab`}
-        >
-          <Icon name="external" size={16} />
+      <div className="card-frame">
+        <Thumbnail project={p} src={thumbnail} />
+        <label className="card-selection tooltip-host">
+          <input
+            type="checkbox"
+            aria-label={`Select ${p.name}`}
+            checked={selected}
+            onChange={(event) => onSelect(event.nativeEvent)}
+          />
           <span className="tooltip" role="tooltip">
-            Open {sourceText(p)} in a new tab
+            Select project
           </span>
-        </a>
-      )}
+        </label>
+        {destination && (
+          <a
+            className="source-link icon-button tooltip-host"
+            href={destination}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open ${sourceText(p)} in a new tab`}
+          >
+            <Icon name="external" size={16} />
+            <span className="tooltip" role="tooltip">
+              Open {sourceText(p)} in a new tab
+            </span>
+          </a>
+        )}
+      </div>
       <div className="card-body">
-        <div className="card-title-row">
-          <h2>
-            <a
-              href={href}
-              className="card-title tooltip-host"
-              aria-label={name}
-              tabIndex={focused ? 0 : -1}
-              onFocus={onFocus}
-              onClick={(event) => {
-                event.preventDefault();
-                if (event.ctrlKey || event.metaKey || event.shiftKey)
-                  onSelect(event);
-                else onOpen();
-              }}
-            >
-              <span ref={title}>{name}</span>
-              {titleTruncated && (
-                <span className="tooltip" role="tooltip">
-                  {name}
-                </span>
-              )}
-            </a>
-          </h2>
-          <div className="menu-anchor card-menu">
-            <ToolButton
-              icon="more"
-              label={`More actions for ${p.name}`}
-              aria-haspopup="menu"
-              aria-expanded={menu}
-              onClick={() => setMenu(!menu)}
-            />
-            {menu && <Menu items={actions} onClose={() => setMenu(false)} />}
-          </div>
-        </div>
-        <div className="card-meta">
-          {p.status !== "ready" && <StatusBadge project={p} />}
+        <div className="card-meta edge">
           <span className="source-name tooltip-host" tabIndex={0}>
             <SourceIcon project={p} />
+            {typeText(p)}
             <span className="tooltip" role="tooltip">
               {typeText(p)} · {sourceText(p)}
             </span>
           </span>
+          {p.status !== "ready" && <StatusBadge project={p} />}
           <time
             className="event-time tooltip-host"
             tabIndex={0}
@@ -440,6 +380,30 @@ export function ProjectCard({
               )}
             </span>
           ) : null}
+        </div>
+        <div className="card-title-row">
+          <h2>
+            <a
+              href={href}
+              className="card-title tooltip-host"
+              aria-label={name}
+              tabIndex={focused ? 0 : -1}
+              onFocus={onFocus}
+              onClick={(event) => {
+                event.preventDefault();
+                if (event.ctrlKey || event.metaKey || event.shiftKey)
+                  onSelect(event);
+                else onOpen();
+              }}
+            >
+              <span ref={title}>{name}</span>
+              {titleTruncated && (
+                <span className="tooltip" role="tooltip">
+                  {name}
+                </span>
+              )}
+            </a>
+          </h2>
           {p.status === "failed" ? (
             <button
               className="button button-ghost card-share card-retry"
@@ -456,6 +420,16 @@ export function ProjectCard({
               Share
             </button>
           )}
+          <div className="menu-anchor card-menu">
+            <ToolButton
+              icon="more"
+              label={`More actions for ${p.name}`}
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              onClick={() => setMenu(!menu)}
+            />
+            {menu && <Menu items={actions} onClose={() => setMenu(false)} />}
+          </div>
         </div>
         {p.error && (
           <p className="card-detail error-reason" title={p.error}>

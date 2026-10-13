@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { WorkspaceAdapter, Project, ProjectDetail, CreateProjectInput, ProjectPatch, UploadOptions, WorkspaceSettings, ShareLink } from './contracts';
+import type { WorkspaceAdapter, Project, ProjectChunk, ProjectDetail, CreateProjectInput, ProjectPatch, UploadOptions, WorkspaceSettings, ShareLink } from './contracts';
 import { uuid } from './id';
 import { abortIfNeeded, checksum } from './checksum';
 import { posterFrame } from './poster';
@@ -19,6 +19,34 @@ const MAX_UPLOAD = 50 * 1024 ** 3;
 const UPLOAD_CHUNK = 6 * 1024 * 1024;
 // The worker rebuilds data.files from its own snapshot, so a poster written mid-job may be missing there.
 const ownPoster = (p:Project) => typeof p.thumbnail==='string'&&p.thumbnail.split('/')[1]===p.id&&!p.thumbnail.includes('..');
+// What a card in the library shows, picked out of the project document so that a list of
+// thousands does not carry every brief, script and file list. PostgREST reads the JSON paths.
+const SUMMARY_FIELDS = ['name','type','source','url','sourceLabel','status','error','eventAt','eventLabel','access','trashedAt','lastOpened','folder','thumbnail','video'];
+const SUMMARY_VALUES = ['progress','duration','references','collaborators','pinned','trashed'];
+export const SUMMARY_SELECT = ['id','created_at','updated_at',
+  ...SUMMARY_FIELDS.map(key=>`${key}:document->>${key}`),
+  ...SUMMARY_VALUES.map(key=>`${key}:document->${key}`),
+  'thumbnailVariants:document->data->thumbnailVariants','favicon:document->data->>favicon','faviconUrl:document->data->>faviconUrl',
+  'narratedVideo:document->data->>narratedVideo','microphone:document->data->microphone','outputFile:document->data->output->>file',
+].join(',');
+const text = (value:unknown) => typeof value==='string'&&value ? value : undefined;
+const count = (value:unknown) => typeof value==='number'&&Number.isFinite(value) ? value : undefined;
+export function projectSummary(row:any):Project {
+  return {
+    id:row.id,name:text(row.name)||'Untitled project',type:row.type==='brief'?'brief':'walkthrough',
+    source:['screen','web','upload'].includes(row.source)?row.source:'screen',url:text(row.url),sourceLabel:text(row.sourceLabel),
+    status:['uploading','queued','processing','failed','draft','ready'].includes(row.status)?row.status:'draft',
+    progress:count(row.progress),error:text(row.error),created:row.created_at,updated:row.updated_at,
+    eventAt:text(row.eventAt)||row.updated_at,eventLabel:(text(row.eventLabel)||'Updated') as Project['eventLabel'],
+    duration:count(row.duration),references:count(row.references),
+    access:['workspace','link'].includes(row.access)?row.access:'private',
+    collaborators:Array.isArray(row.collaborators)?row.collaborators:undefined,
+    pinned:row.pinned===true,trashed:row.trashed===true,trashedAt:text(row.trashedAt),lastOpened:text(row.lastOpened),folder:text(row.folder),
+    thumbnail:text(row.thumbnail),video:text(row.video),
+    // summary marks a project read for the library; its data holds only what a card needs.
+    data:{summary:true,files:{},thumbnailVariants:Array.isArray(row.thumbnailVariants)?row.thumbnailVariants:undefined,favicon:text(row.favicon),faviconUrl:text(row.faviconUrl),narratedVideo:text(row.narratedVideo),microphone:row.microphone===true,output:text(row.outputFile)?{file:row.outputFile}:null},
+  };
+}
 const storageEndpoint = () => {const u=new URL(VISTRALO_SUPABASE_URL);if(/^[a-z0-9]+\.supabase\.co$/.test(u.hostname))u.hostname=u.hostname.replace('.supabase.co','.storage.supabase.co');return `${u.origin}/storage/v1/upload/resumable`;};
 /** Signed in, but this account has no workspace: sign-up is closed, or access was never granted. */
 export class NoWorkspaceError extends Error {constructor(message:string){super(message);this.name='NoWorkspaceError';}}
@@ -108,11 +136,59 @@ export class CloudAdapter implements WorkspaceAdapter {
       try{return await this.sign(p,[]);}catch{return {...p,thumbnail:undefined};}
     }));
   }
+  // Set the first time the slim read is refused, so one bad path cannot leave the library empty.
+  private wholeDocuments=false;
+  private async read(build:(columns:string)=>PromiseLike<{data?:any[]|null,error:any,count?:number|null}>):Promise<{rows:Project[],total:number}>{
+    if(!this.wholeDocuments){
+      const slim=await build(SUMMARY_SELECT);
+      if(!slim.error)return {rows:(slim.data||[]).map(projectSummary),total:slim.count??(slim.data||[]).length};
+      console.warn('Vistralo: the library summary could not be read, falling back to whole projects.',slim.error.message);
+      this.wholeDocuments=true;
+    }
+    const whole=await build('*');
+    if(whole.error)throw Error(whole.error.message);
+    return {rows:(whole.data||[]).map(r=>({...r.document,id:r.id,created:r.created_at,updated:r.updated_at} as Project)),total:whole.count??(whole.data||[]).length};
+  }
+  private async runningJobs(){
+    const rows=unwrap(await required().from('vistralo_jobs').select('project_id').eq('state','processing'));
+    return [...new Set((rows||[]).map((job:{project_id:string})=>job.project_id))];
+  }
+  async summaries({offset,limit}:{offset:number,limit:number}):Promise<ProjectChunk>{
+    await cloudAccount();
+    const [page,running]=await Promise.all([
+      this.read(columns=>required().from('vistralo_projects').select(columns,{count:'exact'}).order('updated_at',{ascending:false}).order('id').range(offset,offset+limit-1)),
+      offset===0?this.runningJobs():Promise.resolve(undefined),
+    ]);
+    return {items:page.rows,total:page.total,running};
+  }
+  async changes(since:string):Promise<ProjectChunk>{
+    await cloudAccount();
+    const [page,size,running]=await Promise.all([
+      this.read(columns=>required().from('vistralo_projects').select(columns).gt('updated_at',since).order('updated_at',{ascending:false}).limit(1000)),
+      required().from('vistralo_projects').select('id',{count:'exact',head:true}),
+      this.runningJobs(),
+    ]);
+    if(size.error)throw Error(size.error.message);
+    return {items:page.rows,total:size.count??0,running};
+  }
+  // One request signs a whole page of posters. Projects recorded before posters existed get one drawn here, a page at a time.
+  async thumbnails(projects:Project[]){
+    const own=projects.filter(p=>ownPoster(p));
+    const nowMs=Date.now();
+    const needed=own.filter(p=>{const hit=this.urls.get(p.id+':'+p.thumbnail);return !(hit&&hit.until-nowMs>120000);});
+    if(needed.length){
+      const signed=unwrap(await required().storage.from('vistralo-media').createSignedUrls(needed.map(p=>p.thumbnail!),600));
+      signed.forEach((entry,index)=>{if(entry.signedUrl)this.urls.set(needed[index].id+':'+needed[index].thumbnail,{url:entry.signedUrl,until:nowMs+480000});});
+    }
+    this.backfillPosters(projects);
+    return Object.fromEntries(own.map(p=>[p.id,this.media(p.id,p.thumbnail!)] as const).filter(([,url])=>url));
+  }
   private postersTried=new Set<string>();
   private postersRunning=false;
   // Projects recorded before posters existed get one, drawn from their video, the first time they are listed.
   private backfillPosters(projects:Project[]){
-    const pending=projects.filter(p=>!p.thumbnail&&!p.trashed&&p.type==='walkthrough'&&typeof p.video==='string'&&p.data?.files?.[p.video]&&!['queued','processing','uploading'].includes(p.status)&&!this.postersTried.has(p.id));
+    // A summary carries no file list; a project that names a video has one unless its upload failed, and then the poster simply is not made.
+    const pending=projects.filter(p=>!p.thumbnail&&!p.trashed&&p.type==='walkthrough'&&typeof p.video==='string'&&(p.data?.summary||p.data?.files?.[p.video])&&!['queued','processing','uploading'].includes(p.status)&&!this.postersTried.has(p.id));
     if(!pending.length||this.postersRunning)return;
     this.postersRunning=true;
     void (async()=>{
