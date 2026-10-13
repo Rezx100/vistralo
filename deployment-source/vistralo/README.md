@@ -7,7 +7,7 @@ Record a flow, upload a video or screenshots, or point at a website. Vistralo fi
 | Part | Where | Deploy |
 | --- | --- | --- |
 | Web app | `web/` (React, TypeScript, esbuild), bundled by `scripts/build-web.cjs` into `server-ui/` and staged by `scripts/build-cloud.cjs` into `dist-web/` | Vercel, on merge to `main` (`vercel.json`: `npm ci --ignore-scripts`, `npm run build:cloud`) |
-| Backend | Supabase: auth, bucket `vistralo-media`, tables `vistralo_projects` and `vistralo_jobs` (`supabase/migrations`), edge function `vistralo-share` | Supabase migrations and functions |
+| Backend | Supabase: auth, bucket `vistralo-media`, tables `vistralo_projects` and `vistralo_jobs` (`supabase/migrations`), edge functions `vistralo-share`, `vistralo-paddle-webhook` and `vistralo-billing` | Supabase migrations and functions |
 | Worker | `scripts/local-admin-worker.cjs` with `src/core.cjs`, `media.cjs`, `editor.cjs`, `viewports.cjs`, `providers.cjs`, `buildread.cjs`, `walkthrough.cjs`, `server-egress.cjs`, `service.cjs`, and `scripts/worker-secrets.cjs` | Manual, see below |
 
 `build:cloud` needs `VISTRALO_SUPABASE_URL` and `VISTRALO_SUPABASE_PUBLISHABLE_KEY` (set in Vercel; only a publishable key may be embedded).
@@ -24,6 +24,7 @@ npm run typecheck:web
 npm run lint:design
 npm run test:web:a11y     # axe and viewport checks, demo mode (needs Playwright Chromium or VISTRALO_TEST_CHROMIUM)
 npm run test:web:journey  # dashboard, upload, overflow, hash worker, CSP (same)
+npm run test:web:billing  # plans, test checkout and billing states with VISTRALO_BILLING=on (same)
 ```
 
 Without Supabase settings the built app runs in demo mode (`#demo/`), which keeps projects in the browser.
@@ -42,3 +43,7 @@ Run only one worker.
 ## Providers
 
 The director script uses OpenAI (`VISTRALO_DIRECTOR_MODEL`, default `gpt-5-mini`, falling back on rate limits); speech uses HeyGen. See [docs/PROVIDERS.md](docs/PROVIDERS.md). Legal notices are drafts: [docs/legal](docs/legal/README.md).
+
+## Plans and payments
+
+Sign-up, plans and Paddle (sandbox) checkout are built and switched off by default. [docs/BILLING.md](docs/BILLING.md) lists what has to be supplied and how to turn it on.

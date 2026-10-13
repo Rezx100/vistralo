@@ -1,0 +1,272 @@
+/* Plans, billing and upgrade prompts. Every value comes from tokens.css. */
+.plans-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-inline-size: calc(var(--dialog-width) * 2);
+}
+.plans-page .page-header p {
+  max-inline-size: var(--dialog-width);
+  text-wrap: pretty;
+}
+.plans-public {
+  min-block-size: 100dvh;
+  padding: var(--space-12) var(--space-6);
+}
+.plans-public .plans-page {
+  margin-inline: auto;
+}
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-pill);
+  background: var(--bg-card);
+}
+.segmented button {
+  min-block-size: var(--control-size);
+  padding-inline: var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg-2);
+  font-weight: var(--weight-medium);
+}
+.segmented button:hover {
+  color: var(--fg-1);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--selected-fill);
+  color: var(--fg-1);
+}
+
+/* One surface with three columns; subgrid keeps prices, buttons and limits on shared lines. */
+.plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(5, auto);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-card);
+  background: var(--bg-card);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  animation: enter var(--motion-enter) var(--motion-ease) var(--motion-toolbar-delay) both;
+}
+.plan {
+  display: grid;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
+  row-gap: var(--space-3);
+  padding: var(--space-6);
+  min-inline-size: 0;
+}
+.plan + .plan {
+  border-inline-start: var(--border-width) solid var(--divider);
+}
+.plan.is-current {
+  background: var(--selected-fill);
+}
+/* Tertiary grey loses contrast on the tinted column. */
+.plan.is-current .caption,
+.plan.is-current dt {
+  color: var(--fg-2);
+}
+.plan h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.plan.is-current .status-badge {
+  background: var(--accent);
+  color: var(--primary-fg);
+}
+.plan-summary {
+  text-wrap: pretty;
+}
+.plan-price {
+  font-variant-numeric: tabular-nums;
+}
+.plan-price strong {
+  font-size: var(--font-title);
+  line-height: var(--line-title);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-title);
+  color: var(--fg-1);
+}
+.plan-action {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--control-primary);
+}
+.plan-action .button {
+  inline-size: 100%;
+  min-block-size: var(--control-primary);
+  border-radius: var(--radius-primary);
+  font-weight: var(--weight-medium);
+}
+.plan-limits {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  margin: 0;
+  padding-block-start: var(--space-4);
+  border-block-start: var(--border-width) solid var(--divider);
+}
+.plan-limits div {
+  display: grid;
+  gap: var(--space-1);
+}
+.plan-limits dt {
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+  color: var(--fg-3);
+}
+.plan-limits dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.plans-footnote {
+  max-inline-size: var(--dialog-width);
+  text-wrap: pretty;
+}
+.plans-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.plans-back {
+  align-self: flex-start;
+  margin-inline-start: calc(-1 * var(--space-3));
+}
+
+/* A subscription that needs attention, above the page content. */
+.billing-notice {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.billing-notice > svg {
+  margin-block-start: var(--sheet-icon-nudge);
+  color: var(--fg-2);
+}
+.billing-notice > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-inline-size: min(100%, var(--scrub-min-width));
+  color: var(--fg-2);
+}
+.billing-notice strong,
+.billing-note strong {
+  color: var(--fg-1);
+  font-weight: var(--weight-semibold);
+}
+.billing-notice.is-danger,
+.billing-note.is-danger {
+  border-color: var(--danger-fg);
+}
+.billing-notice.is-danger > svg,
+.billing-note.is-danger > svg {
+  color: var(--danger-fg);
+}
+.billing-notice.is-warning > svg,
+.billing-note.is-warning > svg {
+  color: var(--paused);
+}
+.billing-note {
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+}
+.billing-note > span {
+  flex: 1;
+  min-inline-size: min(100%, var(--scrub-min-width));
+}
+.billing-usage-value {
+  flex-shrink: 0;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.billing-usage progress {
+  inline-size: calc(var(--space-16) + var(--space-8));
+  block-size: var(--meter-height);
+  accent-color: var(--accent);
+}
+.billing-usage progress.is-full {
+  accent-color: var(--danger-fg);
+}
+.billing-settings .sheet-row > strong {
+  flex-shrink: 0;
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.login-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.login-card .login-switch .button {
+  inline-size: auto;
+}
+
+@media (max-width: 1023px) {
+  .plans {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .plan {
+    grid-row: auto;
+    grid-template-rows: none;
+  }
+  .plan + .plan {
+    border-inline-start: 0;
+    border-block-start: var(--border-width) solid var(--divider);
+  }
+}
+@media (max-width: 767px) {
+  .plans-page .page-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plans-page .segmented {
+    justify-self: start;
+  }
+  .plan {
+    padding: var(--space-4);
+  }
+  .billing-notice .button {
+    inline-size: 100%;
+  }
+}
+@media (forced-colors: active) {
+  .plan.is-current {
+    outline: var(--focus-width) solid Highlight;
+    outline-offset: calc(-1 * var(--focus-width));
+  }
+  .segmented button[aria-pressed="true"] {
+    outline: var(--focus-width) solid Highlight;
+  }
+}
+
+/* Paddle.js lays out its checkout frame with a style attribute, which this app's Content
+   Security Policy refuses (style-src has no 'unsafe-inline'). Giving the frame the same
+   layout from this stylesheet keeps the policy strict. Measured with scripts/paddle-csp-probe.cjs. */
+.paddle-frame-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}

@@ -32,6 +32,15 @@ import { ProjectDetail } from "./features/ProjectDetail";
 import { downloadAgentKit } from "./agent-kit";
 import { ProviderSettings } from "./features/ProviderSettings";
 import { copyText, isTyping, statusText } from "./utils";
+import {
+  BillingBanner,
+  BillingSettings,
+  PricingPage,
+  TestCheckout,
+  UpgradeDialog,
+  useBilling,
+} from "./billing/Billing";
+import { AI_FLOWS, limitReached, planLabel } from "./billing/plans";
 const docsUrl = "https://vistralo.com/#how";
 const SESSION_RESTORE_TIMEOUT_MS = 10000;
 const getMode = (): AppMode =>
@@ -80,16 +89,19 @@ function RailRow({
 function ShareDialog({
   projects,
   adapter,
+  maxDays = 30,
   onClose,
   notify,
 }: {
   projects: Project[];
   adapter: WorkspaceAdapter;
+  /** The longest link the workspace's plan allows. */
+  maxDays?: number;
   onClose: () => void;
   notify: (s: string) => void;
 }) {
   const [links, setLinks] = useState<Array<ShareLink & { name: string }>>([]),
-    [days, setDays] = useState<1 | 7 | 30>(7),
+    [days, setDays] = useState<1 | 7 | 30>(maxDays < 7 ? 1 : 7),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
@@ -144,8 +156,12 @@ function ShareDialog({
             onChange={(e) => setDays(Number(e.target.value) as 1 | 7 | 30)}
           >
             <option value="1">1 day</option>
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
+            <option value="7" disabled={maxDays < 7}>
+              7 days
+            </option>
+            <option value="30" disabled={maxDays < 30}>
+              {maxDays < 30 ? "30 days (paid plans)" : "30 days"}
+            </option>
           </select>
         </label>
         <button
@@ -331,7 +347,9 @@ export default function App() {
     ),
     [menu, setMenu] = useState(""),
     [modal, setModal] = useState(""),
-    [settingsTab, setSettingsTab] = useState<"general" | "ai">("general"),
+    [settingsTab, setSettingsTab] = useState<"general" | "ai" | "billing">(
+      "general",
+    ),
     [flow, setFlow] = useState<CreateFlow | null>(null),
     [share, setShare] = useState<Project[] | null>(null),
     [edit, setEdit] = useState<{ kind: string; projects: Project[] } | null>(
@@ -368,6 +386,20 @@ export default function App() {
     setToastTone(error ? "error" : "success");
     setMessage(s);
   }, []);
+  const billing = useBilling({
+    adapter,
+    mode,
+    active: mode === "demo" || (sessionReady && authenticated),
+    theme,
+    locale,
+    notify,
+    showPlans: () => {
+      setModal("");
+      setFlow(null);
+      setShare(null);
+      go("pricing");
+    },
+  });
   useEffect(() => {
     if (!message || undo) return;
     const timer = setTimeout(
@@ -639,6 +671,20 @@ export default function App() {
   function go(to: string) {
     location.hash = (mode === "demo" ? "demo/" : "") + to;
   }
+  // Asked before a create flow opens, so nobody records or uploads and is then refused.
+  function startFlow(next: CreateFlow) {
+    const kind = limitReached(billing.state, "projects")
+      ? "projects"
+      : AI_FLOWS.has(next) && limitReached(billing.state, "jobs")
+        ? "jobs"
+        : null;
+    if (kind) billing.setUpgrade(kind);
+    else setFlow(next);
+  }
+  function openBilling() {
+    setSettingsTab("billing");
+    setModal("settings");
+  }
   function open(p: Project) {
     adapter
       .update(p.id, { lastOpened: new Date().toISOString() })
@@ -858,8 +904,14 @@ export default function App() {
         </div>
       </main>
     );
+  if (mode === "cloud" && !authenticated && billing.enabled && path[0] === "pricing")
+    return (
+      <main className="plans-public">
+        <PricingPage billing={billing} onSignIn={() => go("projects")} />
+      </main>
+    );
   if (mode === "cloud" && (!authenticated || new URLSearchParams(location.search).get("recovery") === "1"))
-    return <CloudLogin onReady={async () => { await refresh(); const s = await adapter.settings(); setProfile(p => ({...p,name:String(s.displayName),email:String(s.email),workspace:String(s.name)})); }} />;
+    return <CloudLogin onPlans={billing.enabled ? () => go("pricing") : undefined} onReady={async () => { await refresh(); const s = await adapter.settings(); setProfile(p => ({...p,name:String(s.displayName),email:String(s.email),workspace:String(s.name)})); }} />;
   const current = projects.find((p) => p.id === path[1]),
     view = path[0] || "projects";
   const visible = projects.filter((p) => !p.trashed),
@@ -868,6 +920,15 @@ export default function App() {
       .filter((p) => p.lastOpened)
       .sort((a, b) => String(b.lastOpened).localeCompare(String(a.lastOpened)))
       .slice(0, 5);
+  const settingsTabs: Array<["general" | "ai" | "billing", string]> = [
+    ["general", "General"],
+    ...(adapter.capabilities.providers
+      ? [["ai", "AI narration"] as ["ai", string]]
+      : []),
+    ...(billing.enabled
+      ? [["billing", "Billing"] as ["billing", string]]
+      : []),
+  ];
   const navLabels =
     locale === "de"
       ? ["Projekte", "Mit mir geteilt", "Papierkorb"]
@@ -958,7 +1019,9 @@ export default function App() {
             </span>
             <span className="workspace-copy">
               <strong>{profile.workspace}</strong>
-              <small>Free plan</small>
+              <small>
+                {billing.enabled ? planLabel(billing.state) : "Free plan"}
+              </small>
             </span>
             <Icon name="chevronDown" size={16} />
             <span className="tooltip" role="tooltip">
@@ -980,6 +1043,15 @@ export default function App() {
                   icon: "settings",
                   onClick: () => setModal("settings"),
                 },
+                ...(billing.enabled
+                  ? [
+                      {
+                        label: "Plan and billing",
+                        icon: "sparkle",
+                        onClick: openBilling,
+                      },
+                    ]
+                  : []),
                 ...(mode === "demo"
                   ? [
                       {
@@ -1169,7 +1241,10 @@ export default function App() {
               </button>
             </div>
           )}
-          {view === "states" && mode === "demo" ? (
+          {billing.enabled && <BillingBanner billing={billing} locale={locale} />}
+          {view === "pricing" && billing.enabled ? (
+            <PricingPage billing={billing} onBack={() => go("projects")} />
+          ) : view === "states" && mode === "demo" ? (
             <States adapter={adapter} projects={projects} notify={notify} />
           ) : view === "project" ? (
             current ? (
@@ -1198,10 +1273,10 @@ export default function App() {
           ) : (
             <Projects
               projects={projects}
-              view={view === "states" ? "projects" : view}
+              view={view === "states" || view === "pricing" ? "projects" : view}
               adapter={adapter}
               locale={locale}
-              create={setFlow}
+              create={startFlow}
               onOpen={open}
               actions={actions}
               onShare={(p) => setShare([p])}
@@ -1273,6 +1348,11 @@ export default function App() {
         <ShareDialog
           projects={share}
           adapter={adapter}
+          maxDays={
+            billing.state?.enforce && !billing.state.admin
+              ? billing.state.limits.shareDays
+              : 30
+          }
           onClose={() => {
             setShare(null);
             refresh();
@@ -1280,6 +1360,18 @@ export default function App() {
           notify={notify}
         />
       )}{" "}
+      {billing.upgrade && (
+        <UpgradeDialog
+          billing={billing}
+          kind={billing.upgrade}
+          onClose={() => billing.setUpgrade(null)}
+          onPlans={() => {
+            billing.setUpgrade(null);
+            billing.act("plans");
+          }}
+        />
+      )}
+      <TestCheckout billing={billing} />
       {edit && (
         <TextDialog
           title={edit.kind === "rename" ? "Rename project" : "Move projects"}
@@ -1475,14 +1567,9 @@ export default function App() {
             </dl>
           ) : modal === "settings" ? (
             <>
-              {adapter.capabilities.providers && (
+              {settingsTabs.length > 1 && (
                 <div className="sheet-tabs" role="tablist" aria-label="Preferences">
-                  {(
-                    [
-                      ["general", "General"],
-                      ["ai", "AI narration"],
-                    ] as const
-                  ).map(([id, label]) => (
+                  {settingsTabs.map(([id, label]) => (
                     <button
                       key={id}
                       type="button"
@@ -1505,10 +1592,22 @@ export default function App() {
                 >
                   <ProviderSettings adapter={adapter} notify={notify} />
                 </div>
+              ) : billing.enabled && settingsTab === "billing" ? (
+                <div
+                  role="tabpanel"
+                  id="settings-panel-billing"
+                  aria-labelledby="settings-tab-billing"
+                >
+                  <BillingSettings
+                    billing={billing}
+                    locale={locale}
+                    onPlans={() => billing.act("plans")}
+                  />
+                </div>
               ) : (
                 <div
                   className="sheet-stack"
-                  {...(adapter.capabilities.providers
+                  {...(settingsTabs.length > 1
                     ? {
                         role: "tabpanel",
                         id: "settings-panel-general",

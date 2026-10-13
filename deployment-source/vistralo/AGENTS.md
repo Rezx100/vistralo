@@ -6,4 +6,5 @@
 - Worker claims about a site (libraries, fonts, effects) must come from the build read's evidence; say "likely" when only the video frames suggest it.
 - Paid providers (OpenAI, HeyGen) are only called for real user jobs. Do not queue a paid job to test without the owner's yes.
 - Keep credentials out of projects, logs, prompts and Git.
+- Plans and Paddle are behind `VISTRALO_BILLING` (off by default) and sandbox only; read `docs/BILLING.md` before touching them. The Paddle API key and webhook secret are Supabase function secrets, never build variables.
 - Before committing, run `npm run build:server`, `npm test`, `npm run typecheck:web` and `npm run lint:design`.

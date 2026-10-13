@@ -10,7 +10,7 @@
     {"key":"X-Frame-Options","value":"DENY"},
     {"key":"Permissions-Policy","value":"camera=(), geolocation=(), microphone=(self), display-capture=(self)"},
     {"key":"Cache-Control","value":"no-cache"},
-    {"key":"Content-Security-Policy","value":"default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' blob: data: https://yyiikuzhgxdgrthntzyr.supabase.co; media-src 'self' blob: https://yyiikuzhgxdgrthntzyr.supabase.co; connect-src 'self' https://yyiikuzhgxdgrthntzyr.supabase.co https://yyiikuzhgxdgrthntzyr.storage.supabase.co wss://yyiikuzhgxdgrthntzyr.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"}
+    {"key":"Content-Security-Policy","value":"default-src 'self'; script-src 'self' https://cdn.paddle.com; style-src 'self' https://sandbox-cdn.paddle.com; font-src 'self'; img-src 'self' blob: data: https://yyiikuzhgxdgrthntzyr.supabase.co; media-src 'self' blob: https://yyiikuzhgxdgrthntzyr.supabase.co; connect-src 'self' https://yyiikuzhgxdgrthntzyr.supabase.co https://yyiikuzhgxdgrthntzyr.storage.supabase.co wss://yyiikuzhgxdgrthntzyr.supabase.co https://sandbox-api.paddle.com; frame-src 'self' https://sandbox-buy.paddle.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"}
   ]}],
   "rewrites":[{"source":"/auth/callback","destination":"/index.html"}]
 }
