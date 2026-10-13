@@ -72,6 +72,7 @@ function RailRow({
   return (
     <button
       className={`rail-row tooltip-host ${active ? "active" : ""}`}
+      aria-label={label}
       aria-current={active ? "page" : undefined}
       onClick={onClick}
     >
@@ -1006,6 +1007,7 @@ export default function App() {
         <div className="workspace-switcher menu-anchor">
           <button
             className="workspace-button tooltip-host"
+            aria-labelledby="workspace-label"
             aria-haspopup="menu"
             aria-expanded={menu === "workspace"}
             onClick={() => setMenu(menu === "workspace" ? "" : "workspace")}
@@ -1017,7 +1019,7 @@ export default function App() {
                 .slice(0, 2)
                 .join("")}
             </span>
-            <span className="workspace-copy">
+            <span className="workspace-copy" id="workspace-label">
               <strong>{profile.workspace}</strong>
               <small>
                 {billing.enabled ? planLabel(billing.state) : "Free plan"}
@@ -1153,6 +1155,7 @@ export default function App() {
           <div className="menu-anchor">
             <button
               className="account-row tooltip-host"
+              aria-labelledby="account-label"
               aria-haspopup="menu"
               aria-expanded={menu === "account"}
               onClick={() => setMenu(menu === "account" ? "" : "account")}
@@ -1164,7 +1167,7 @@ export default function App() {
                   .slice(0, 2)
                   .join("")}
               </span>
-              <span>
+              <span id="account-label">
                 <strong>{profile.name}</strong>
                 <small>
                   {profile.email ||
