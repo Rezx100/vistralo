@@ -32,6 +32,24 @@ async function main() {
     assert.ok(before > 0, 'Demo projects are listed');
     checks.push('demo Projects workspace renders with its sample projects');
 
+    // The create bar shows its record actions at rest, stays put, and its button opens and closes the menu.
+    const create = page.getByRole('button', {name:'New project', exact:true});
+    const bar = page.getByRole('toolbar', {name:'Create', exact:true});
+    for (const name of ['AI walkthrough', 'Talk-through', 'Section'])
+      assert.equal(await bar.getByRole('button', {name, exact:true}).isVisible(), true, name + ' shows without hovering');
+    await bar.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+    const resting = await create.boundingBox();
+    await page.mouse.move(resting.x - 60, resting.y - 60);
+    await page.mouse.move(resting.x - 10, resting.y - 10, {steps:5});
+    await page.waitForTimeout(400);
+    assert.deepEqual(await create.boundingBox(), resting, 'The create bar does not move as the pointer approaches');
+    await create.click();
+    await page.getByRole('menuitem', {name:/^Record a talk-through/}).waitFor();
+    await create.click();
+    await page.getByRole('menu').waitFor({state:'detached'});
+    assert.equal(await create.getAttribute('aria-expanded'), 'false', 'A second click closes the New project menu');
+    checks.push('create bar is steady, shows record actions at rest, and New project toggles its menu');
+
     // Synthetic footage is the only input; no user recording is used.
     const fixture = path.join(temp, 'test-upload.mp4');
     await run('ffmpeg', ['-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-t','2','-c:v','libx264','-pix_fmt','yuv420p',fixture]);
@@ -67,6 +85,16 @@ async function main() {
     }));
     assert.equal(actual, expected, 'Multi-chunk browser SHA-256 matches Node');
     checks.push('multi-chunk browser hash worker matches Node');
+
+    // A bare domain is what people type; it must not be refused for lacking https://.
+    await page.setViewportSize({width:1440, height:900});
+    await page.getByRole('button', {name:'New project', exact:true}).click();
+    await page.getByRole('menuitem', {name:/^Analyze a website/}).click();
+    const site = page.getByRole('dialog', {name:'Analyze a website', exact:true});
+    await site.getByLabel(/Website URL/).fill('example.com');
+    await site.getByRole('button', {name:'Analyze website', exact:true}).click();
+    await page.getByRole('heading', {name:'example.com design review', level:1, exact:true}).waitFor();
+    checks.push('Analyze a website accepts a bare domain');
 
     assert.deepEqual(errors, [], 'No uncaught exceptions or CSP violations');
     checks.push('no uncaught exceptions or CSP violations');

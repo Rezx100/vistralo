@@ -138,6 +138,7 @@ export function AreaSelector({
   height,
   area,
   selecting,
+  still = false,
   onChange,
 }: {
   stream: MediaStream;
@@ -145,6 +146,8 @@ export function AreaSelector({
   height: number;
   area: CaptureArea | null;
   selecting: boolean;
+  /** Hold the first frame. A whole screen that shows this page would otherwise repeat inside itself. */
+  still?: boolean;
   onChange: (area: CaptureArea | null) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null),
@@ -152,10 +155,15 @@ export function AreaSelector({
     drag = useRef<Drag | null>(null);
 
   useEffect(() => {
-    if (!video.current) return;
-    video.current.srcObject = stream;
-    void video.current.play().catch(() => {});
-  }, [stream]);
+    const element = video.current;
+    if (!element) return;
+    element.srcObject = stream;
+    void element.play().catch(() => {});
+    if (!still) return;
+    const hold = () => element.pause();
+    element.addEventListener("loadeddata", hold, { once: true });
+    return () => element.removeEventListener("loadeddata", hold);
+  }, [stream, still]);
 
   function point(event: React.PointerEvent) {
     const box = surface.current!.getBoundingClientRect();
@@ -240,7 +248,7 @@ export function AreaSelector({
       className={`rec-stage ${selecting ? "is-selecting" : ""}`}
       style={{ "--ratio": width && height ? `${width} / ${height}` : "16 / 9" } as React.CSSProperties}
     >
-      <video ref={video} muted playsInline aria-label="Live preview of what will be recorded" />
+      <video ref={video} muted playsInline aria-label={still ? "Preview of what will be recorded" : "Live preview of what will be recorded"} />
       <div
         ref={surface}
         className="rec-stage-surface"

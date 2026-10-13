@@ -49,8 +49,13 @@ export class CloudAdapter implements WorkspaceAdapter {
   }
   async list(){
     await cloudAccount();
-    const rows=unwrap(await required().from('vistralo_projects').select('*').order('updated_at',{ascending:false}));
-    const projects=rows.map(r=>({...r.document,id:r.id,created:r.created_at,updated:r.updated_at} as Project));
+    const [rows,running]=await Promise.all([
+      required().from('vistralo_projects').select('*').order('updated_at',{ascending:false}).then(unwrap),
+      required().from('vistralo_jobs').select('project_id').eq('state','processing').then(unwrap),
+    ]);
+    // The worker writes a project's status only when its job ends, so a claimed job is what marks it as under way.
+    const started=new Set((running||[]).map((job:{project_id:string})=>job.project_id));
+    const projects=rows.map(r=>({...r.document,id:r.id,created:r.created_at,updated:r.updated_at} as Project)).map(p=>p.status==='queued'&&started.has(p.id)?{...p,status:'processing' as const}:p);
     this.backfillPosters(projects);
     return Promise.all(projects.map(async p=>{
       try{return await this.sign(p,[]);}catch{return {...p,thumbnail:undefined};}
@@ -103,7 +108,7 @@ export class CloudAdapter implements WorkspaceAdapter {
   async trash(ids:string[]){for(const id of ids){await this.save(id,p=>({...p,trashed:true,trashedAt:now()}));unwrap(await required().from('vistralo_shares').update({revoked:true}).eq('project_id',id));}}
   async restore(ids:string[]){for(const id of ids)await this.save(id,p=>({...p,trashed:false,trashedAt:undefined}));}
   async remove(ids:string[]){for(const id of ids){const row=await this.row(id);if(!row.document.trashed)throw Error('Move the project to Trash first.');const files=[...new Set([...Object.keys(row.document.data.files||{}),...(ownPoster({...row.document,id})?[row.document.thumbnail!]:[])])];if(files.length)unwrap(await required().storage.from('vistralo-media').remove(files));unwrap(await required().from('vistralo_projects').delete().eq('id',id));}}
-  async project(id:string):Promise<ProjectDetail>{const row=await this.row(id);const p=await this.sign(row.document);const jobs=unwrap(await required().from('vistralo_jobs').select('*').eq('project_id',id).order('created_at',{ascending:false}));return {project:p,files:Object.entries(p.data.files||{}).map(([file,value]:[string,any])=>({file,...value})),evidence:p.data.evidence||null,jobs,events:[],progress:await this.liveProgress(jobs),shares:await this.shares(id),brief:p.data.brief};}
+  async project(id:string):Promise<ProjectDetail>{const row=await this.row(id);const jobs=unwrap(await required().from('vistralo_jobs').select('*').eq('project_id',id).order('created_at',{ascending:false}));const started=row.document.status==='queued'&&jobs.some((job:any)=>job.state==='processing');const p=await this.sign(started?{...row.document,status:'processing'}:row.document);return {project:p,files:Object.entries(p.data.files||{}).map(([file,value]:[string,any])=>({file,...value})),evidence:p.data.evidence||null,jobs,events:[],progress:await this.liveProgress(jobs),shares:await this.shares(id),brief:p.data.brief};}
   private async liveProgress(jobs:any[]){
     const job=jobs.find(j=>j.state==='queued'||j.state==='processing');
     if(!job)return null;

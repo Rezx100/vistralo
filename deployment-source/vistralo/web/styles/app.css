@@ -2327,8 +2327,8 @@ input.switch:disabled {
 @keyframes navigation-pending { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 @media (prefers-reduced-motion: reduce) { .navigation-progress.is-pending span { animation: none; inline-size: 100%; } }
 
-/* Floating create dock. It rests as a small glass pill and opens when the
-   pointer comes near, following it slightly. */
+/* Create bar. It stays put at the foot of the project list with its record
+   actions always showing, so nothing shifts under the pointer. */
 main:has(.create-dock) {
   padding-block-end: var(--dock-reserve);
 }
@@ -2346,63 +2346,31 @@ body:has(.create-dock) .toast {
   display: none;
 }
 .create-dock {
-  --dock-dx: 0;
-  --dock-dy: 0;
   position: fixed;
   z-index: 50;
   inset-block-end: var(--dock-offset);
   inset-inline-start: var(--dock-center);
-  translate: calc(-50% + var(--dock-dx) * var(--dock-drift))
-    calc(var(--dock-dy) * var(--dock-drift));
+  translate: -50% 0;
   display: flex;
   align-items: center;
+  max-inline-size: calc(100vw - var(--space-8));
   block-size: var(--dock-height);
   padding: var(--space-1);
   border: var(--border-width) solid var(--glass-border);
   border-radius: var(--radius-pill);
-  background: var(--glass-bg);
+  background: var(--glass-bg-strong);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
-  transition:
-    translate var(--motion-dock) var(--motion-ease),
-    background var(--motion-dock) var(--motion-ease),
-    border-color var(--motion-dock) var(--motion-ease);
   animation: dock-in var(--motion-dock) var(--motion-spring) both;
 }
 [dir="rtl"] .create-dock {
-  translate: calc(50% + var(--dock-dx) * var(--dock-drift))
-    calc(var(--dock-dy) * var(--dock-drift));
+  translate: 50% 0;
 }
 .create-dock-quick {
-  display: grid;
-  grid-template-columns: 0fr;
-  transition: grid-template-columns var(--motion-dock) var(--motion-ease);
-}
-.create-dock-quick > div {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  min-inline-size: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: opacity var(--motion-standard) var(--motion-ease);
-}
-.create-dock[data-near="true"],
-.create-dock:hover,
-.create-dock:focus-within,
-.create-dock.is-open {
-  background: var(--glass-bg-strong);
-}
-.create-dock[data-near="true"] .create-dock-quick,
-.create-dock:hover .create-dock-quick,
-.create-dock:focus-within .create-dock-quick {
-  grid-template-columns: 1fr;
-}
-.create-dock[data-near="true"] .create-dock-quick > div,
-.create-dock:hover .create-dock-quick > div,
-.create-dock:focus-within .create-dock-quick > div {
-  opacity: 1;
 }
 .dock-action {
   display: inline-flex;
@@ -2485,15 +2453,16 @@ body:has(.create-dock) .toast {
   line-height: var(--line-caption);
   font-weight: var(--weight-medium);
 }
+/* The dock already blurs what is behind it, so a nested blur cannot apply; the menu is opaque instead. */
 .create-dock .menu {
   inset-block-start: auto;
   inset-block-end: calc(100% + var(--space-3));
   padding: var(--space-2);
   border-color: var(--glass-border);
   border-radius: var(--radius-card);
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: var(--bg-elevated);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: var(--glass-shadow);
   transform-origin: bottom right;
   animation: dock-menu-in var(--motion-enter) var(--motion-spring) both;
@@ -2520,6 +2489,12 @@ body:has(.create-dock) .toast {
   }
   body:has(.create-dock) .toast {
     inset-block-end: calc(var(--space-4) + var(--dock-height) + var(--space-3));
+  }
+}
+/* Below this width the three record actions do not fit beside the rail; the menu lists them. */
+@media (max-width: 1023px) {
+  .create-dock-quick {
+    display: none;
   }
 }
 @media (forced-colors: active) {
