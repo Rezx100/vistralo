@@ -42,11 +42,13 @@ There is no `supabase/config.toml`, so none of this is recorded in Git:
 
 ## 4. What this means for the billing migration
 
-`20261013150000_vistralo_billing.sql` was tested against the first four migrations, not against production. It adds restrictive policies and triggers and leaves the existing policies alone, which limits the risk. Three things should still be checked on the real schema before it is applied:
+`20261013103120_vistralo_billing.sql` was tested against the first four migrations, not against production. It adds restrictive policies and triggers and leaves the existing policies alone, which limits the risk.
 
-1. Its triggers fire on the worker's writes. `vistralo_projects_restore_limit` runs before every project update, including the worker's, and `vistralo_jobs_uncount` runs on every job state change. Both are `security definer` and use the row's `owner_id`, not the caller, so they should behave the same for the worker. Confirm that the worker's update path (rows 7 and 8) reaches them without an error.
+Pull request 12 says the migration has since been applied to the live project (it was renamed to the version number production recorded). This document's author did not apply it and has not looked at the result. The three points below were written before that. Since the migration applied without stopping, the third is settled; the first two are things to confirm on the live schema now, before limits are switched on.
+
+1. Its triggers fire on the worker's writes. `vistralo_projects_restore_limit` runs before every project update, including the worker's, and `vistralo_jobs_uncount` runs on every job state change. Both are `security definer` and use the row's `owner_id`, not the caller, so they should behave the same for the worker. Confirm that a real job still finishes: the worker's update path (rows 7 and 8) has to reach these triggers without an error.
 2. Its insert policies are restrictive for `authenticated`. If production inserts jobs or projects as an administrator on someone else's behalf, `vistralo_can_queue_job` and `vistralo_can_create_project` will count against the administrator's own plan. `vistralo_limits_apply` exempts administrators, so this should be harmless; confirm it.
-3. If production already has an object with one of the new names, the migration stops at that statement. It uses plain `create`, not `create or replace`, so it cannot overwrite anything.
+3. If production had already held an object with one of the new names, the migration would have stopped at that statement. It uses plain `create`, not `create or replace`, so it cannot have overwritten anything.
 
 ## 5. Recording the real schema (read-only)
 
