@@ -53,6 +53,7 @@ const { serve } = require('./static-server.cjs');
       assert.equal(metrics.h1,1,name+' must have one H1');
       assert.ok(metrics.documentWidth<=width,name+' must not overflow horizontally');
       if(name==='desktop'||name==='laptop') assert.ok(metrics.firstRowBottom<=height,name+' first row must be fully visible');
+      if(name==='tablet-icon-rail') for(const label of [/^Demo workspace/,/^Demo user/]) assert.equal(await page.locator('.rail').getByRole('button',{name:label}).count(),1,label+' must name its icon-rail button');
       assert.deepEqual(errors,[]);
       await context.close();
     }
