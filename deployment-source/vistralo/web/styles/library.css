@@ -463,6 +463,10 @@
   background: var(--accent-wash);
   color: var(--accent-deep);
 }
+.status-stalled {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
 .status-processing .icon {
   animation: rotate var(--motion-pulse) linear infinite;
 }
@@ -472,7 +476,7 @@
   background: none;
   font: inherit;
 }
-.card-meta .status-badge:not(.status-failed, .status-uploading, .status-queued, .status-processing) {
+.card-meta .status-badge:not(.status-failed, .status-stalled, .status-uploading, .status-queued, .status-processing) {
   color: inherit;
 }
 

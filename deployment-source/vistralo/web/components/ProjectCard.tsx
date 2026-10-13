@@ -13,6 +13,7 @@ import {
   statusText,
   statusIcon,
   statusHint,
+  stalled,
   accessText,
   accessIcon,
 } from "../utils";
@@ -94,20 +95,24 @@ function SourceIcon({ project }: { project: Project }) {
 }
 
 export function StatusBadge({ project: p }: { project: Project }) {
+  const stall = stalled(p);
+  const hint = stall ? `${stall.reason} ${stall.next}` : statusHint(p);
   return (
     <span
-      className={`status-badge status-${p.status}`}
-      aria-description={statusHint(p)}
-      title={statusHint(p)}
+      className={`status-badge status-${stall ? "stalled" : p.status}`}
+      aria-description={hint}
+      title={hint}
     >
-      <Icon name={statusIcon(p)} size={14} />
-      {statusText(p)}
+      <Icon name={stall ? "warning" : statusIcon(p)} size={14} />
+      {stall ? "Stalled" : statusText(p)}
     </span>
   );
 }
 
 /** What a frame says when there is no picture to show yet. */
 function blankLabel(p: Project, failed: boolean) {
+  const stall = stalled(p);
+  if (stall) return stall.label;
   if (p.status === "uploading") return "Transferring your recording";
   if (p.status === "queued") return "Waiting for a worker";
   if (p.status === "processing")
@@ -133,6 +138,7 @@ export function Thumbnail({ project: p, src }: { project: Project; src?: string 
     setFailed(false);
   }, [image]);
   const working = p.status === "processing" || p.status === "queued";
+  const stall = !!stalled(p);
   const variants = src === undefined ? thumbnailVariants(p) : [];
   const duration =
     Number.isFinite(p.duration) && (p.duration || 0) > 0
@@ -189,7 +195,7 @@ export function Thumbnail({ project: p, src }: { project: Project; src?: string 
           ) : (
             <Icon
               name={
-                rejected
+                rejected || stall
                   ? "warning"
                   : p.status === "uploading"
                     ? "upload"
@@ -227,7 +233,7 @@ export function Thumbnail({ project: p, src }: { project: Project; src?: string 
           aria-label={`Upload progress for ${p.name}`}
         />
       )}
-      {working && (
+      {working && !stall && (
         <progress
           aria-label={`${p.status === "queued" ? "Queued" : p.type === "brief" ? "Analyzing site" : "Processing video"}: ${p.name}`}
         />
@@ -411,6 +417,13 @@ export function ProjectCard({
               disabled={!retry || retry.disabled}
             >
               Retry
+            </button>
+          ) : stalled(p) ? (
+            <button
+              className="button button-ghost card-share card-retry"
+              onClick={onOpen}
+            >
+              Resolve
             </button>
           ) : (
             <button

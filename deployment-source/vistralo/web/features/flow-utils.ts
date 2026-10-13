@@ -15,6 +15,52 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
+/**
+ * The name a project gets when the person did not type one. It has to be readable in a list
+ * of many: what kind of thing it is, then where it came from or when it was made.
+ */
+export function automaticName({
+  flow,
+  source,
+  url,
+  fileName,
+  shots = 0,
+  spoken = false,
+  now = new Date(),
+  locale,
+}: {
+  flow?: string;
+  source: "screen" | "web" | "upload";
+  /** A website address, already validated. */
+  url?: string;
+  fileName?: string;
+  shots?: number;
+  spoken?: boolean;
+  now?: Date;
+  locale?: string;
+}): string {
+  const host = url ? new URL(url).hostname.replace(/^www\./, "") : "";
+  const when = new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(now);
+  let name: string;
+  if (source === "web") name = `${host} design review`;
+  else if (flow === "narrate-screenshots")
+    name = `${shots} ${shots === 1 ? "screenshot" : "screenshots"}, ${when}`;
+  else if (source === "upload") {
+    // A file keeps its own name, tidied; a name that says nothing gets the date instead.
+    const stem = (fileName || "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+    name = stem && !/^(screen recording|recording|video|untitled)\b[\s\dTZ:.-]*$/i.test(stem) ? stem : `Video, ${when}`;
+  } else {
+    const kind = flow === "section" ? "Section" : spoken || flow === "talk-through" ? "Talk-through" : "Walkthrough";
+    name = host ? `${host} ${kind.toLowerCase()}` : `${kind}, ${when}`;
+  }
+  return name.slice(0, 120);
+}
+
 export function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const value = Math.floor(seconds),

@@ -8,6 +8,8 @@ import { JobFailure, JobProgress } from "./project/JobProgress";
 import { OverviewTab } from "./project/OverviewTab";
 import { NextStep, ProjectHeader } from "./project/ProjectHeader";
 import { ShareFirst } from "./project/ShareFirst";
+import { StalledNotice } from "./project/StalledNotice";
+import { stalled } from "../utils";
 import { useProjectDetail } from "./project/useProjectDetail";
 import "./features.css";
 
@@ -79,6 +81,7 @@ export function ProjectDetail({
     downloadKit,
   } = useProjectDetail(initial, adapter, onBack, onChanged, notify);
   const [tab, setTab] = useState<Tab>("overview");
+  const stall = stalled(project);
   const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const output = project.data.output?.file as string | undefined;
   const original = (project.video || project.data.video) as
@@ -213,7 +216,18 @@ export function ProjectDetail({
           action={action}
         />
       )}
-      {active && (
+      {stall && (
+        <StalledNotice
+          project={project}
+          stall={stall}
+          adapter={adapter}
+          busy={!!busy}
+          action={action}
+          uploadVideo={uploadVideo}
+          onTrashed={onBack}
+        />
+      )}
+      {active && !stall && (
         <JobProgress
           project={project}
           adapter={adapter}

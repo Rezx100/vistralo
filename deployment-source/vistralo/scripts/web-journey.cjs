@@ -145,6 +145,56 @@ async function main() {
     await page.locator('.project-card').first().waitFor();
     checks.push('a project opens with the player first, Share in its header, and a sheet of screens that plays from the one chosen');
 
+    // Settings is a page with an address, not a window over the page.
+    await page.locator('.rail-footer').getByRole('button', {name:'Settings', exact:true}).click();
+    await page.getByRole('heading', {name:'Settings', level:1, exact:true}).waitFor();
+    assert.match(new URL(page.url()).hash, /^#demo\/settings$/);
+    assert.equal(await page.getByRole('dialog').count(), 0, 'Settings opens no dialog');
+    await page.getByRole('button', {name:'Check', exact:true}).click();
+    await page.getByRole('tabpanel').getByRole('status').filter({hasText:/^(Demo mode|Connected|Checked)/}).waitFor();
+    await page.getByRole('tab', {name:'Profile', exact:true}).click();
+    assert.match(new URL(page.url()).hash, /^#demo\/settings\/profile$/);
+    await page.getByLabel('Name', {exact:true}).fill('Rana Ahmed');
+    await page.getByRole('button', {name:'Save profile', exact:true}).click();
+    await page.locator('.toast-message', {hasText:'Profile saved'}).waitFor();
+    await page.locator('.account-row strong', {hasText:'Rana Ahmed'}).waitFor();
+    await page.goBack();
+    await page.getByRole('tab', {name:'General', exact:true, selected:true}).waitFor();
+    checks.push('Settings is a page with its own address and sections, and the profile saves from it');
+
+    // A project left uploading for days says so, counts as needing attention, and offers the way out.
+    await page.evaluate(() => {
+      const key = 'vistralo-demo-workspace:v1', store = JSON.parse(localStorage.getItem(key));
+      const stale = store.projects.find(project => project.id === 'demo-design-handoff');
+      stale.updated = stale.eventAt = new Date(Date.now() - 3 * 86400000).toISOString();
+      localStorage.setItem(key, JSON.stringify(store));
+      location.hash = 'demo/projects';
+    });
+    await page.reload();
+    const stalledCard = page.locator('.project-card', {hasText:'Design system handoff'});
+    await stalledCard.locator('.status-stalled', {hasText:'Stalled'}).waitFor();
+    assert.equal(await stalledCard.locator('.frame-blank span').innerText(), 'No change for 3 days');
+    assert.equal(await stalledCard.locator('progress:indeterminate').count(), 0, 'A stalled frame does not pretend to be working');
+    assert.match(await page.getByRole('tab', {name:/^Needs attention/}).innerText(), /2$/, 'Stalled work is counted with what needs attention');
+    await stalledCard.getByRole('button', {name:'Resolve', exact:true}).click();
+    const stalledNotice = page.getByRole('region', {name:'This project has stalled', exact:true});
+    await stalledNotice.getByText(/^No change for 3 days\. The upload stopped/).waitFor();
+    await stalledNotice.getByRole('button', {name:'Choose the file again', exact:true}).waitFor();
+    await stalledNotice.getByRole('button', {name:'Move to Trash', exact:true}).click();
+    await page.getByRole('heading', {name:'Projects', level:1, exact:true}).waitFor();
+    // Undo belongs to the message that offered it.
+    const moved = page.locator('.toast', {hasText:'Moved to Trash'});
+    await moved.waitFor();
+    await page.locator('.project-card', {hasText:'Design system handoff'}).waitFor({state:'detached'});
+    await page.locator('.rail').getByRole('button', {name:'Trash', exact:true}).click();
+    await page.locator('.project-card', {hasText:'Design system handoff'}).getByRole('button', {name:/^More actions/}).click();
+    await page.getByRole('menuitem', {name:'Restore', exact:true}).click();
+    await page.locator('.toast-message', {hasText:'Project restored'}).waitFor();
+    assert.equal(await page.locator('.toast').getByRole('button', {name:'Undo', exact:true}).count(), 0, 'Undo is not carried onto a later message');
+    await page.locator('.rail').getByRole('button', {name:'Projects', exact:true}).click();
+    await page.locator('.project-card', {hasText:'Design system handoff'}).waitFor();
+    checks.push('a project stalled for three days says so, counts as needing attention, and can be resolved, trashed and restored');
+
     // Synthetic footage is the only input; no user recording is used.
     const fixture = path.join(temp, 'test-upload.mp4');
     await run('ffmpeg', ['-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-t','2','-c:v','libx264','-pix_fmt','yuv420p',fixture]);
@@ -306,6 +356,11 @@ async function main() {
     const saved = take.getByRole('region', {name:'Your recording is saved', exact:true});
     await saved.waitFor({timeout:30000});
     assert.match(new URL(take.url()).hash, /^#demo\/project\//, 'Stopping lands on the recording\'s own page');
+    // The recording names itself by what it is and when, not by a raw timestamp.
+    const takeName = await take.getByRole('heading', {level:1}).innerText();
+    assert.match(takeName, /^Walkthrough, /);
+    assert.equal(/\dT\d\d|Z$/.test(takeName), false, takeName);
+    assert.equal(await take.locator('.rail').getByRole('button', {name:takeName, exact:true}).count(), 1, 'The rail lists it under the same name');
     assert.equal(await take.title(), restingTitle, 'The tab title is put back');
     assert.equal(await icon(), restingIcon, 'The tab icon is put back');
     assert.deepEqual(await scanTake(), [], 'The saved-recording page passes axe');

@@ -65,6 +65,14 @@ const { serve } = require('./static-server.cjs');
       assert.deepEqual(await rescan(),[],name+' list view');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),name+' list view must not overflow the page');
       await page.screenshot({path:path.join(output,name+'-list.png'),fullPage:true});
+      // Settings and its profile form.
+      for(const route of ['settings','settings/profile']) {
+        await page.goto(origin+'/#demo/'+route);
+        await page.getByRole('heading',{name:'Settings',level:1,exact:true}).waitFor();
+        assert.deepEqual(await rescan(),[],name+' '+route);
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),name+' '+route+' must not overflow the page');
+        assert.equal(await page.locator('h1').count(),1,name+' '+route+' must have one H1');
+      }
       assert.deepEqual(errors,[]);
       await context.close();
     }

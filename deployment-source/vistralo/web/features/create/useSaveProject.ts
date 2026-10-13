@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type {
   Project,
   ProjectSource,
@@ -6,11 +6,13 @@ import type {
   WorkspaceAdapter,
 } from "../../contracts";
 import { clearRecording } from "../recording-store";
-import { errorMessage, publicWebsite, validateVideo } from "../flow-utils";
+import { automaticName, errorMessage, publicWebsite, validateVideo } from "../flow-utils";
+import type { CreateFlow } from "../create-flows";
 import { screenshotsVideo } from "../../slideshow";
 
 interface SaveOptions {
   source: ProjectSource;
+  flow?: CreateFlow;
   screenshots: boolean;
   adapter: WorkspaceAdapter;
   name: string;
@@ -31,6 +33,7 @@ interface SaveOptions {
 
 export function useSaveProject({
   source,
+  flow,
   screenshots,
   adapter,
   name,
@@ -54,14 +57,25 @@ export function useSaveProject({
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [building, setBuilding] = useState<number | null>(null);
   const built = useRef<{ shots: File[]; video: File } | null>(null);
+  // A take that is thrown away takes its half-made project with it, so the next take starts a new one.
+  useEffect(() => {
+    if (!file && !shots.length) created.current = null;
+  }, [file, shots.length]);
 
   async function save() {
     if (busy || activeRecording) return;
     setError("");
     setBusy(true);
     try {
+      // The site address is only asked for where narration will use it; elsewhere a value left
+      // over from before the field was hidden is ignored.
+      const typed =
+        (source === "screen" && spoken) ||
+        (source === "upload" && !screenshots && !voiceover)
+          ? ""
+          : url;
       const sourceUrl =
-        source === "web" || url.trim() ? publicWebsite(url) : undefined;
+        source === "web" || typed.trim() ? publicWebsite(typed) : undefined;
       let media = file;
       if (source !== "web") {
         if (screenshots) {
@@ -82,12 +96,17 @@ export function useSaveProject({
         if (!media) throw new Error("Choose or record a video first.");
         validateVideo(media, adapter.mode === "cloud");
       }
-      const projectName = (
-        name.trim() ||
-        (source === "web" && sourceUrl
-          ? `${new URL(sourceUrl).hostname} design review`
-          : media?.name.replace(/\.[^.]+$/, "") || "Screen recording")
-      ).slice(0, 120);
+      const projectName =
+        name.trim().slice(0, 120) ||
+        automaticName({
+          flow,
+          source,
+          url: sourceUrl,
+          fileName: media?.name,
+          shots: shots.length,
+          spoken,
+          locale: localStorage.getItem("vistralo-locale") || undefined,
+        });
       const project =
         created.current ??
         (await adapter.create({

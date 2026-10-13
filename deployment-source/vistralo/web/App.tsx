@@ -18,12 +18,12 @@ import {
 import { AI_FLOWS, limitReached } from "./billing/plans";
 import { AppModal } from "./app/AppModal";
 import { DeleteProjectsDialog, EditProjectsDialog } from "./app/ProjectDialogs";
-import { projectActions } from "./app/projectActions";
+import { counted, projectActions, type Undo } from "./app/projectActions";
 import { Rail } from "./app/Rail";
 import { RecordControl, rememberRecordFlow, storedRecordFlow } from "./app/RecordControl";
 import { getMode, route, useHashRoute } from "./app/routing";
 import { NoWorkspaceScreen, RestoringSession } from "./app/SessionScreens";
-import { usePreferences } from "./app/Settings";
+import { SettingsPage, usePreferences } from "./app/Settings";
 import { ShareDialog } from "./app/ShareDialog";
 import { SharedPage } from "./app/SharedPage";
 import { useCreateShortcut, useSidebarShortcut } from "./app/Shortcuts";
@@ -52,9 +52,6 @@ export default function App() {
     ),
     [menu, setMenu] = useState(""),
     [modal, setModal] = useState(""),
-    [settingsTab, setSettingsTab] = useState<"general" | "ai" | "billing">(
-      "general",
-    ),
     [flow, setFlow] = useState<CreateFlow | null>(null),
     [recordFlow, setRecordFlow] = useState<CreateFlow>(storedRecordFlow),
     // The project saved a moment ago, whose page opens with the share link offered first.
@@ -65,7 +62,7 @@ export default function App() {
     ),
     [deleting, setDeleting] = useState<string[] | null>(null),
     [message, setMessage] = useState(""),
-    [undo, setUndo] = useState<string[] | null>(null),
+    [undo, setUndo] = useState<Undo | null>(null),
     [theme, setTheme] = useState(
       () => localStorage.getItem("vistralo-theme") || "light",
     ),
@@ -80,8 +77,7 @@ export default function App() {
       name: getMode() === "demo" ? "Demo user" : "Account",
       email: "",
       workspace: getMode() === "demo" ? "Demo workspace" : "Workspace",
-    }),
-    [health, setHealth] = useState("");
+    });
   const adapter = useMemo(() => createAdapter(mode), [mode]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -195,9 +191,14 @@ export default function App() {
     }
   }
   function openBilling() {
-    setSettingsTab("billing");
-    setModal("settings");
+    go("settings/billing");
   }
+  // Settings and the profile are pages; everything else the rail opens is still a dialog.
+  const openModal: typeof setModal = (next) => {
+    if (next === "settings") go("settings");
+    else if (next === "profile") go("settings/profile");
+    else setModal(next);
+  };
   const { open, run, bulk, actions } = projectActions({
     adapter,
     mode,
@@ -228,7 +229,7 @@ export default function App() {
       </main>
     );
   if (mode === "cloud" && (!authenticated || new URLSearchParams(location.search).get("recovery") === "1"))
-    return <CloudLogin theme={theme} onPlans={billing.enabled ? () => go("pricing") : undefined} onReady={async () => { await refresh(); const s = await adapter.settings(); setProfile(p => ({...p,name:String(s.displayName),email:String(s.email),workspace:String(s.name)})); }} />;
+    return <CloudLogin theme={theme} onPlans={billing.enabled ? () => go("pricing") : undefined} onReady={async () => { await refresh(); const s = await adapter.settings(); setProfile(p => ({...p,name:String(s.displayName||p.name),email:String(s.email||p.email),workspace:String(s.name||p.workspace)})); }} />;
   // Signed in but with no workspace: the shell would only offer actions that fail.
   if (mode === "cloud" && noWorkspace)
     return (
@@ -288,7 +289,7 @@ export default function App() {
         setCollapsed={setCollapsed}
         setDrawer={setDrawer}
         setMenu={setMenu}
-        setModal={setModal}
+        setModal={openModal}
         go={go}
         open={open}
         openBilling={openBilling}
@@ -343,6 +344,24 @@ export default function App() {
           {billing.enabled && <BillingBanner billing={billing} locale={locale} />}
           {view === "pricing" && billing.enabled ? (
             <PricingPage billing={billing} onBack={() => go("projects")} />
+          ) : view === "settings" ? (
+            <SettingsPage
+              tab={path[1]}
+              go={go}
+              adapter={adapter}
+              billing={billing}
+              mode={mode}
+              theme={theme}
+              setTheme={setTheme}
+              locale={locale}
+              setLocale={setLocale}
+              direction={direction}
+              setDirection={setDirection}
+              profile={profile}
+              setProfile={setProfile}
+              run={run}
+              notify={notify}
+            />
           ) : view === "states" && mode === "demo" ? (
             <States adapter={adapter} projects={projects} notify={notify} />
           ) : view === "project" ? (
@@ -359,13 +378,16 @@ export default function App() {
                 onFreshDone={() => setFresh(null)}
               />
             ) : loading || opened.pending ? (
-              <p>Opening project…</p>
+              <div className="project-opening" role="status">
+                <div className="thumbnail is-blank" />
+                <p>Opening project…</p>
+              </div>
             ) : (
               <section className="empty-state">
                 <h1>Project unavailable</h1>
                 <p>
-                  It may have been deleted or this link belongs to another
-                  studio.
+                  It may have been deleted, or this address belongs to a different
+                  workspace from the one you are signed in to.
                 </p>
                 <button className="button" onClick={() => go("projects")}>
                   Back to projects
@@ -399,7 +421,7 @@ export default function App() {
           run(async () => {
             await adapter.restore(ids);
             setUndo(null);
-          }, "Projects restored")
+          }, `${counted(ids.length)} restored`)
         }
         onDismiss={() => setMessage("")}
       />
@@ -470,22 +492,7 @@ export default function App() {
           modal={modal}
           setModal={setModal}
           adapter={adapter}
-          billing={billing}
-          mode={mode}
-          settingsTab={settingsTab}
-          setSettingsTab={setSettingsTab}
-          theme={theme}
-          setTheme={setTheme}
-          locale={locale}
-          setLocale={setLocale}
-          direction={direction}
-          setDirection={setDirection}
-          health={health}
-          setHealth={setHealth}
-          profile={profile}
-          setProfile={setProfile}
           run={run}
-          notify={notify}
         />
       )}
     </div>

@@ -58,6 +58,7 @@ function mockSupabase(host, world) {
     if (name === 'POST /auth/v1/token?grant_type=pkce') { world.confirmed = true; return json(route, 200, session()); }
     if (name === 'GET /auth/v1/user') return json(route, 200, user(true));
     if (name === 'POST /auth/v1/logout') return route.fulfill({status:204, headers:cors});
+    if (name === 'POST /auth/v1/resend') return json(route, 200, {});
     if (name === 'GET /rest/v1/vistralo_accounts') return json(route, 200, world.account ? [world.account] : []);
     if (name === 'POST /rest/v1/rpc/vistralo_complete_signup') {
       if (!world.signupOpen) return json(route, 400, {code:'P0001', message:'Sign-up is not open yet. Contact contact@vistralo.com for access.', details:null, hint:null});
@@ -143,7 +144,7 @@ async function main() {
     assert.equal(await page.getByRole('button', {name:'See plans and prices', exact:true}).count(), 0);
     await fill(page);
     await page.getByRole('button', {name:'Sign in', exact:true}).click();
-    await status(page).filter({hasText:'Email not confirmed'}).waitFor();
+    await status(page).filter({hasText:'Confirm your email address first. We sent a link to ' + EMAIL}).waitFor();
     assert.equal(mock.named('POST /auth/v1/signup').length, 0);
     await page.context().close();
     checks.push('with sign-up off the sign-in page offers no account creation and never calls the sign-up endpoint');
@@ -207,8 +208,26 @@ async function main() {
     // Signing in before confirming says why.
     await password.fill(PASSWORD);
     await page.getByRole('button', {name:'Sign in', exact:true}).click();
-    await status(page).filter({hasText:'Email not confirmed'}).waitFor();
-    checks.push('signing in before confirming the address is refused with the reason');
+    await status(page).filter({hasText:'Confirm your email address first. We sent a link to ' + EMAIL}).waitFor();
+    // The refusal is in plain words, and the link can be sent again from the same screen.
+    assert.equal(await status(page).innerText(), 'Confirm your email address first. We sent a link to ' + EMAIL + ' when you signed up.');
+    await page.getByRole('button', {name:'Send the link again', exact:true}).click();
+    await status(page).filter({hasText:'We sent the link again to ' + EMAIL}).waitFor();
+    const [again] = mock.named('POST /auth/v1/resend');
+    assert.equal(again.body.type, 'signup');
+    assert.equal(again.body.email, EMAIL);
+    assert.equal(again.query.redirect_to, open.origin + '/auth/callback');
+    assert.equal(await page.getByRole('button', {name:'Send the link again', exact:true}).count(), 0);
+    // A wrong password gets its own sentence, not the service's.
+    await password.fill('not-the-right-password');
+    await page.getByRole('button', {name:'Sign in', exact:true}).click();
+    await status(page).filter({hasText:'That email and password do not match. Check both and try again.'}).waitFor();
+    // The password can be shown while typing and hidden again.
+    await page.getByRole('button', {name:'Show password', exact:true}).click();
+    assert.equal(await password.getAttribute('type'), 'text');
+    await page.getByRole('button', {name:'Hide password', exact:true}).click();
+    assert.equal(await password.getAttribute('type'), 'password');
+    checks.push('signing in before confirming says so in plain words and can send the link again; a wrong password and the show-password control behave');
 
     // Opening the link from the email exchanges its code and creates the workspace.
     await page.goto(open.origin + '/auth/callback?code=mock-confirmation-code');
@@ -256,7 +275,7 @@ async function main() {
     checks.push('when Supabase returns a session at once, sign-up goes straight to the workspace');
 
     // Refusals from Supabase Auth and from the database are shown as they are, and the form stays usable.
-    for (const [world, text] of [[{signup:'rate'}, 'you can only request this after 52 seconds'], [{signup:'weak'}, 'Password should be at least 12 characters.']]) {
+    for (const [world, text] of [[{signup:'rate'}, 'Too many attempts. Wait 52 seconds and try again.'], [{signup:'weak'}, 'Use a password of at least 12 characters.']]) {
       ({page, mock} = await start(open.origin, world));
       await toSignUp(page);
       await fill(page);

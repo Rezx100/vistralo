@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Project, WorkspaceAdapter } from "../../contracts";
-import { isTyping, sourceText } from "../../utils";
+import { isTyping, sourceText, stalled } from "../../utils";
 
 /** One page of the library. Divides evenly into two, three and four columns. */
 export const PAGE_SIZE = 48;
@@ -95,12 +95,19 @@ export function useLibrary({
     for (const p of filtered)
       if (p.status === "draft" || p.status === "ready" || p.status === "failed")
         result[p.status]++;
+      // Stalled work has not failed, but it needs the same attention.
+      else if (stalled(p)) result.failed++;
     return result;
   }, [filtered]);
   const visible = useMemo(
     () =>
       filtered
-        .filter((p) => tab === "all" || p.status === tab)
+        .filter(
+          (p) =>
+            tab === "all" ||
+            p.status === tab ||
+            (tab === "failed" && !!stalled(p)),
+        )
         .sort((a, b) => {
           const result =
             sort === "name"

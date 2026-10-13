@@ -1591,3 +1591,121 @@ input.switch:disabled {
     display: none;
   }
 }
+
+/* Settings: a page with sections, not a window over the page. */
+.settings-page {
+  max-inline-size: var(--settings-max);
+}
+.settings-page .tabs {
+  margin-block-end: var(--space-6);
+}
+.settings-panel > .sheet-stack > p {
+  max-inline-size: 64ch;
+}
+.settings-panel form {
+  max-inline-size: var(--sheet-width);
+}
+
+/* Sign in and sign up: a field of the accent that says what Vistralo does, and the form on paper. */
+.login-page:has(.login-aside) {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  place-items: stretch;
+  padding: 0;
+}
+.login-aside {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  background: var(--accent);
+  color: var(--primary-fg);
+}
+.login-aside p {
+  margin: 0;
+  color: inherit;
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-section);
+  line-height: var(--line-section);
+  font-weight: var(--weight-semibold);
+}
+.login-pitch {
+  max-inline-size: 16ch;
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-display);
+  font-size: var(--font-pitch);
+  line-height: var(--line-pitch);
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-title);
+  text-wrap: balance;
+}
+.login-steps {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.login-steps li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.login-page:has(.login-aside) .login-card {
+  place-self: center;
+  border: 0;
+  background: transparent;
+}
+.login-emblem {
+  display: none;
+}
+.login-password {
+  position: relative;
+}
+/* Show and Hide sit on the label's line, at its end, clear of what is being typed. */
+.login-card .login-reveal {
+  position: absolute;
+  inset-block-start: calc(var(--space-4) - var(--space-1));
+  inset-inline-end: 0;
+  inline-size: auto;
+  min-block-size: var(--control-small);
+  padding: 0 var(--space-2);
+  color: var(--accent-soft);
+}
+.login-card form .button-primary {
+  margin-block-start: var(--space-2);
+}
+.login-message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--fg-1);
+}
+.login-message svg {
+  margin-block-start: var(--sheet-icon-nudge);
+}
+.login-message.is-error {
+  color: var(--danger-fg);
+}
+@media (max-width: 1023px) {
+  .login-page:has(.login-aside) {
+    grid-template-columns: minmax(0, 1fr);
+    place-items: center;
+    padding: var(--space-6);
+  }
+  .login-aside {
+    display: none;
+  }
+  .login-emblem {
+    display: block;
+  }
+  .login-page:has(.login-aside) .login-card {
+    border: var(--border-width) solid var(--divider);
+    background: var(--bg-card);
+  }
+}

@@ -60,16 +60,22 @@ async function main() {
     const openBilling = async () => {
       await workspace(page).click();
       await page.getByRole('menuitem', {name:'Plan and billing', exact:true}).click();
-      const dialog = page.getByRole('dialog', {name:'Preferences', exact:true});
-      await dialog.getByRole('tab', {name:'Billing', exact:true, selected:true}).waitFor();
-      return dialog;
+      // Settings is a page with its own address; Plan and billing opens its Billing section.
+      await page.getByRole('heading', {name:'Settings', level:1, exact:true}).waitFor();
+      await page.getByRole('tab', {name:'Billing', exact:true, selected:true}).waitFor();
+      assert.match(new URL(page.url()).hash, /settings\/billing$/);
+      assert.equal(await page.getByRole('dialog').count(), 0, 'Settings does not open in a window over the page');
+      return page.getByRole('tabpanel');
     };
     const preview = async label => {
       const dialog = await openBilling();
       await dialog.getByLabel('Preview a billing state').selectOption({label});
       return dialog;
     };
-    const done = dialog => dialog.getByRole('button', {name:'Done', exact:true}).click();
+    const done = async () => {
+      await page.evaluate(() => { location.hash = 'demo/projects'; });
+      await page.getByRole('heading', {name:'Projects', level:1, exact:true}).waitFor();
+    };
 
     let settings = await openBilling();
     await settings.getByText('Free plan', {exact:true}).waitFor();
@@ -104,7 +110,7 @@ async function main() {
     // Plans page: three plans, test prices, and the test checkout in place of Paddle.
     await workspace(page).click();
     await page.getByRole('menuitem', {name:'Plan and billing', exact:true}).click();
-    await page.getByRole('dialog', {name:'Preferences', exact:true}).getByRole('button', {name:'See plans', exact:true}).click();
+    await page.getByRole('tabpanel').getByRole('button', {name:'See plans', exact:true}).click();
     await page.getByRole('heading', {name:'Plans', level:1, exact:true}).waitFor();
     const plan = name => page.locator('.plan', {has:page.getByRole('heading', {name:new RegExp('^' + name), level:2})});
     assert.equal(await page.locator('.plan').count(), 3);
@@ -199,11 +205,13 @@ async function main() {
       if (width >= 768) await page.locator('.workspace-button').click();
       else { await page.getByRole('button', {name:'Open navigation', exact:true}).click(); await page.locator('.workspace-button').click(); }
       await page.getByRole('menuitem', {name:'Plan and billing', exact:true}).click();
-      const dialog = page.getByRole('dialog', {name:'Preferences', exact:true});
-      await dialog.getByLabel('Preview a billing state').selectOption({label:'Pro, payment past due'});
-      await dialog.getByText('Your last payment did not go through').waitFor();
-      assert.deepEqual(await scan(), [], name + ' billing tab');
-      assert.equal(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth), true, name + ' billing tab fits its sheet');
+      const panel = page.getByRole('tabpanel');
+      await panel.getByLabel('Preview a billing state').selectOption({label:'Pro, payment past due'});
+      await panel.getByText('Your last payment did not go through').waitFor();
+      // The page and axe were replaced by the move to Settings; load axe into the new document state.
+      assert.deepEqual(await scan(), [], name + ' billing settings');
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, name + ' billing settings fit the page');
+      assert.equal(await page.locator('h1').count(), 1, name + ' settings has one H1');
       await page.screenshot({path:path.join(evidence, name.replace('plans', 'settings') + '.png')});
       await page.context().close();
     }

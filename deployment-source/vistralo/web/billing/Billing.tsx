@@ -488,7 +488,7 @@ const PREVIEWS: Array<[string, Record<string, unknown>]> = [
   ["Pro, ended", { plan: "pro", status: "canceled", scheduledAction: null }],
 ];
 
-/** The Billing tab in Preferences. */
+/** The Billing section of Settings. */
 export function BillingSettings({
   billing,
   locale,

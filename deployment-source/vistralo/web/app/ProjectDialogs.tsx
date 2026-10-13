@@ -1,4 +1,5 @@
 import React from "react";
+import { counted } from "./projectActions";
 import type { Project, WorkspaceAdapter } from "../contracts";
 import { Dialog, TextDialog } from "../components/Primitives";
 import type { ProjectEdit, Run } from "./projectActions";
@@ -38,7 +39,9 @@ export function EditProjectsDialog({
             edit.kind === "rename" ? { name: value } : { folder: value },
           );
         notify(
-          edit.kind === "rename" ? "Project renamed" : "Projects moved",
+          edit.kind === "rename"
+            ? "Project renamed"
+            : `${counted(edit.projects.length)} moved`,
         );
         await refresh();
       }}
@@ -81,7 +84,7 @@ export function DeleteProjectsDialog({
               run(async () => {
                 await adapter.remove(deleting);
                 onClose();
-              }, "Projects permanently deleted")
+              }, `${counted(deleting.length)} permanently deleted`)
             }
           >
             Delete permanently

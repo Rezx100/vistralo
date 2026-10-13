@@ -209,3 +209,59 @@ main:has(> .project-detail) {
     outline-offset: calc(var(--focus-width) * -1);
   }
 }
+
+/* A project that stopped part-way: what probably happened, and the way out. */
+.stalled-notice {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--warning-fg);
+  border-radius: var(--radius-card);
+  background: var(--warning-bg);
+}
+.stalled-icon {
+  display: grid;
+  place-items: center;
+  block-size: var(--line-section);
+  color: var(--warning-fg);
+}
+.stalled-copy {
+  display: flex;
+  flex: 1 1 var(--menu-width);
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+.stalled-copy h2 {
+  font-size: var(--font-card);
+  line-height: var(--line-section);
+}
+.stalled-copy p {
+  max-inline-size: 72ch;
+  margin: 0;
+  color: var(--fg-1);
+}
+.stalled-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* A project on its way: a blank frame holds the player's place. */
+.project-opening {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-inline-size: var(--detail-max);
+  margin-inline: auto;
+  color: var(--fg-3);
+  animation: skeleton var(--motion-shimmer) ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-opening {
+    animation: none;
+  }
+}

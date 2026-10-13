@@ -75,6 +75,7 @@ export function CreateProject({
   } = rec;
   const { controller, created, busy, progress, building, save } = useSaveProject({
     source,
+    flow,
     screenshots,
     adapter,
     name,
