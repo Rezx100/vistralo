@@ -161,6 +161,14 @@ export function ProjectDetail({
         active={active}
         back={back}
         downloadKit={downloadKit}
+        onShare={
+          onShare &&
+          adapter.capabilities.share &&
+          !project.trashed &&
+          (project.video || output || brief.trim() || project.data.brief)
+            ? onShare
+            : undefined
+        }
       />
       {fresh && onShare && onFreshDone && !!project.video && !project.trashed && (
         <ShareFirst
@@ -170,7 +178,11 @@ export function ProjectDetail({
           onDismiss={onFreshDone}
         />
       )}
-      {!active && !project.error && project.type === "walkthrough" && (
+      {/* A finished walkthrough with nothing left to do needs no notice above its player. */}
+      {!active &&
+        !project.error &&
+        project.type === "walkthrough" &&
+        (project.status !== "ready" || canVoiceover) && (
         <NextStep
           project={project}
           adapter={adapter}
@@ -178,13 +190,6 @@ export function ProjectDetail({
           processing={processing}
           action={action}
         />
-      )}
-      {adapter.mode === "demo" && (
-        <p className="flow-notice">
-          Demo workspace. Sample evidence is illustrative; website analysis is a
-          local simulation. Video rendering needs a Vistralo cloud workspace. Uploaded
-          videos stay in this browser.
-        </p>
       )}
       {error && (
         <p className="flow-error" role="alert">
@@ -331,6 +336,13 @@ export function ProjectDetail({
             />
           )}
         </section>
+      )}
+      {adapter.mode === "demo" && (
+        <p className="flow-notice">
+          Demo workspace. Sample evidence is illustrative; website analysis is a
+          local simulation. Video rendering needs a Vistralo cloud workspace. Uploaded
+          videos stay in this browser.
+        </p>
       )}
     </div>
   );

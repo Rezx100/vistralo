@@ -1,0 +1,211 @@
+/* A project's page: the player first, in a frame, then what it says about each screen. See DESIGN.md. */
+main:has(> .project-detail) {
+  padding: var(--space-6) var(--space-12) var(--space-12);
+}
+.project-detail {
+  inline-size: 100%;
+  max-inline-size: var(--detail-max);
+  margin-inline: auto;
+  gap: var(--space-4);
+}
+.flow-detail-heading h1 {
+  font-size: var(--font-title);
+  line-height: var(--line-title);
+  font-weight: var(--weight-display);
+}
+.flow-detail-heading .edge {
+  color: var(--fg-3);
+}
+
+/* The page's sections are pills, like the library's filters. */
+.flow-tabs {
+  gap: var(--space-1);
+  padding: var(--focus-ring);
+  margin: calc(var(--focus-ring) * -1);
+  border-block-end: 0;
+  scrollbar-width: none;
+}
+.flow-tabs::-webkit-scrollbar {
+  display: none;
+}
+.flow-tabs > button {
+  display: inline-flex;
+  align-items: center;
+  block-size: var(--control-size);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: var(--fg-2);
+  font-size: var(--font-label);
+  line-height: var(--line-label);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.flow-tabs > button:hover {
+  background: var(--hover-bg);
+  color: var(--fg-1);
+}
+.flow-tabs > button[aria-selected="true"] {
+  background: var(--fg-1);
+  color: var(--bg-page);
+}
+.flow-panel {
+  padding-block-start: var(--space-2);
+}
+
+/* One column: the film in its black edge, the facts printed beneath, then the sheet. */
+.flow-overview {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+}
+.flow-video video {
+  /* As tall as its own picture, so the frame hugs it; capped so the transport stays in view. */
+  block-size: auto;
+  aspect-ratio: auto 16 / 9;
+  max-block-size: calc(100dvh - var(--detail-chrome-height) + var(--space-16) * 2);
+  min-block-size: 0;
+  padding: var(--frame-edge);
+  border: 0;
+  border-radius: var(--radius-frame);
+  background: var(--rebate);
+}
+.flow-side {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  max-block-size: none;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.flow-facts {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-6);
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+}
+.flow-facts > div {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+.flow-facts dt {
+  color: var(--fg-3);
+}
+.flow-facts dd {
+  color: var(--fg-1);
+  text-align: start;
+}
+
+/* The sheet: every screen, numbered, with the line spoken over it. */
+.screen-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-4);
+  border-block-start: var(--border-width) solid var(--divider);
+}
+.flow-panel .screen-sheet h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-section);
+  line-height: var(--line-section);
+}
+.screen-sheet ol {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.screen-sheet li {
+  display: grid;
+  grid-template-columns: var(--sheet-number-width) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-3);
+  margin-inline: calc(var(--space-3) * -1);
+  border-radius: var(--radius-control);
+}
+.screen-sheet li + li {
+  border-block-start: var(--border-width) solid var(--divider);
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+.screen-sheet li.is-current {
+  background: var(--accent-wash);
+}
+.screen-sheet li.is-current + li,
+.screen-sheet li.is-current {
+  border-block-start-color: transparent;
+}
+.screen-sheet li p {
+  max-inline-size: 72ch;
+  margin: 0;
+  color: var(--fg-1);
+  font-size: var(--font-body);
+  line-height: var(--line-card);
+}
+.sheet-seek {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-block-size: var(--control-small);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-frame);
+  background: none;
+  color: var(--fg-3);
+}
+.sheet-seek:hover {
+  color: var(--accent-soft);
+}
+.sheet-number {
+  color: var(--fg-1);
+}
+.is-current .sheet-seek,
+.is-current .sheet-number {
+  color: var(--accent-deep);
+}
+
+@media (max-width: 1099px) {
+  main:has(> .project-detail) {
+    padding: var(--space-6) var(--space-6) var(--space-12);
+  }
+}
+@media (max-width: 767px) {
+  main:has(> .project-detail) {
+    padding: var(--space-4) var(--space-4) var(--space-8);
+  }
+  .screen-sheet li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+  /* The scrubber takes its own row so the buttons and the time fit beneath it. */
+  .flow-transport {
+    flex-wrap: wrap;
+  }
+  .flow-scrub {
+    order: -1;
+    flex-basis: 100%;
+  }
+  .flow-time {
+    margin-inline-start: auto;
+  }
+}
+@media (forced-colors: active) {
+  .flow-tabs > button[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: var(--accent);
+    color: var(--primary-fg);
+  }
+  .screen-sheet li.is-current {
+    outline: var(--focus-width) solid var(--accent);
+    outline-offset: calc(var(--focus-width) * -1);
+  }
+}

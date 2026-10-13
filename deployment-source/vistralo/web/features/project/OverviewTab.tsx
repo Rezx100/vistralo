@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import type {
   Project,
   ProjectDetail as ProjectInfo,
   UploadProgress,
   WorkspaceAdapter,
 } from "../../contracts";
-import { formatDuration, publicWebsite } from "../flow-utils";
+import { publicWebsite } from "../flow-utils";
 import { LiveFrame, Playback } from "./Player";
+import { ScreenSheet, screenParts } from "./ScreenSheet";
 import type { ProjectAction } from "./useProjectDetail";
 
 export function OverviewTab({
@@ -48,6 +49,13 @@ export function OverviewTab({
   action: ProjectAction;
   uploadVideo: (file: File) => Promise<void>;
 }) {
+  const [seek, setSeek] = useState<{ at: number; n: number } | null>(null),
+    [time, setTime] = useState(0);
+  // The lines belong to the narrated film; over the plain recording their times would be wrong.
+  const parts =
+    (project.data.narratedVideo || project.data.sampleScript) && project.data.script
+      ? screenParts(project.data)
+      : [];
   return (
     <>
       {previewFile ? (
@@ -59,6 +67,8 @@ export function OverviewTab({
               duration={
                 project.duration || project.data.mediaInfo?.duration
               }
+              seek={seek}
+              onTime={setTime}
             />
             {mediaError && <p className="flow-notice">{mediaError}</p>}
             {project.data.sampleVideoNotice && (
@@ -125,23 +135,14 @@ export function OverviewTab({
                 Create MP4 preview
               </button>
             )}
-            {project.data.narratedVideo && project.data.script && (
-              <section className="flow-script" aria-label="Narration">
-                <h2>Narration</h2>
-                <ol>
-                  {(Array.isArray(project.data.scriptParts)
-                    ? project.data.scriptParts
-                    : [{ at: 0, text: String(project.data.script) }]
-                  ).map((part: { at: number; text: string }) => (
-                    <li key={part.at}>
-                      <time>{formatDuration(part.at)}</time>
-                      <p>{part.text}</p>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            )}
           </aside>
+          {parts.length > 0 && (
+            <ScreenSheet
+              parts={parts}
+              time={time}
+              onSeek={(at) => setSeek((last) => ({ at, n: (last?.n || 0) + 1 }))}
+            />
+          )}
         </div>
       ) : active && info?.progress?.previewUrl ? (
         <figure className="flow-live">

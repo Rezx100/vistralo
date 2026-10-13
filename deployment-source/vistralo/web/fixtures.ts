@@ -47,7 +47,25 @@ export function createDemoFixtures(now = Date.now()): Project[] {
         video: SAMPLE_VIDEO,
         sampleVideo: true,
         sampleVideoNotice:
-          "Short sample preview; 4:32 is fictional project metadata.",
+          "A short, silent sample. The lines below were written for it by hand, to show how a narrated walkthrough reads. 4:32 is fictional project metadata.",
+        // Written for the three screens of the sample video, which change at 4 and 8 seconds.
+        sampleScript: true,
+        script:
+          "The page opens with the headline on the left and three storage tins on a shelf to the right. The collection page shows three products in a row. A product page puts the picture on the left and the facts on the right.",
+        scriptParts: [
+          {
+            at: 0,
+            text: "The page opens with the headline on the left and three storage tins on a shelf to the right. One dark button, Explore collection, is the only thing asking to be clicked.",
+          },
+          {
+            at: 4,
+            text: "The collection page shows three products in a row, each on its own tinted square. The name and price sit directly under each picture, so the row reads in one pass.",
+          },
+          {
+            at: 8,
+            text: "A product page puts the picture on the left and the facts on the right: the name, the price, two lines of description and the colour. Add to bag runs the full width of that column.",
+          },
+        ],
       },
     },
     {
