@@ -244,6 +244,8 @@ export function CreateProject({
     [progress, setProgress] = useState<UploadProgress | null>(null);
   const [error, setError] = useState(""),
     [recoverySaved, setRecoverySaved] = useState(false),
+    // Set when the dialog opens onto a recording left over from an earlier visit.
+    [leftOver, setLeftOver] = useState<Date | null>(null),
     [localUrl, setLocalUrl] = useState("");
   const [storageChecked, setStorageChecked] = useState(source !== "screen");
   const activeRecording =
@@ -282,10 +284,13 @@ export function CreateProject({
         Website URL <span className="flow-muted">(optional)</span>
       </span>
       <input
-        type="url"
+        type="text"
         inputMode="url"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         value={url}
-        placeholder="https://example.com"
+        placeholder="example.com"
         onChange={(event) => setUrl(event.target.value)}
         disabled={busy || !!created.current}
         aria-describedby="site-url-help"
@@ -313,11 +318,18 @@ export function CreateProject({
             spokenTake.current = saved.microphone;
             setRecording("staged");
             setRecoverySaved(true);
+            setLeftOver(new Date(saved.file.lastModified));
           }
+          return !!saved;
         })
-        .catch(() => {})
-        .finally(() => {
-          if (mounted.current) setStorageChecked(true);
+        .catch(() => false)
+        .then((leftOverFound) => {
+          if (!mounted.current) return;
+          setStorageChecked(true);
+          // The click that opened this sheet still counts as the gesture the browser's
+          // picker needs, so ask now instead of making the user press a second button.
+          if (!leftOverFound && screenSupported && adapter.capabilities.upload)
+            void chooseSource(true);
         });
     return () => {
       mounted.current = false;
@@ -558,7 +570,7 @@ export function CreateProject({
     if (context && context.state !== "closed") void context.close();
   }
 
-  function captureFailed(failure: unknown) {
+  function captureFailed(failure: unknown, quiet = false) {
     stopCaptureTracks();
     closeFloating();
     if (mounted.current) {
@@ -568,6 +580,7 @@ export function CreateProject({
       setRecording("idle");
     }
     spokenTake.current = false;
+    if (quiet) return;
     setError(
       failure instanceof DOMException && failure.name === "NotAllowedError"
         ? "Screen sharing was not allowed. Choose what to record to try again."
@@ -583,7 +596,8 @@ export function CreateProject({
     setRecording("idle");
   }
 
-  async function chooseSource() {
+  /** `automatic` is the ask made as the sheet opens; if the browser refuses or the user cancels it, the form simply stays. */
+  async function chooseSource(automatic = false) {
     if (requestingCapture) return;
     if (!screenSupported) {
       setError(
@@ -613,14 +627,13 @@ export function CreateProject({
         throw new Error(
           "This browser cannot use a microphone here. Turn off Record my voice to capture the screen without it.",
         );
-      // The picker keeps this click's activation and the floating window uses it,
-      // so both start here, before the microphone await. Once a tab is picked,
-      // Chrome switches to it and the floating controls are the only ones visible.
+      // The picker needs this click's activation, so it starts here, before the
+      // microphone await. The floating controls wait for Start recording: opened
+      // now they would sit over the picker with nothing to control.
       // Tab audio makes Chrome stop the microphone, so voice recordings skip it.
       const pickArea = selectArea && areaCaptureSupported;
       const picking = chooseDisplay(!microphone, !pickArea);
       picking.catch(() => {});
-      void popOutControls();
       if (microphone) {
         try {
           try {
@@ -682,7 +695,12 @@ export function CreateProject({
         void beginRecording(true);
       }
     } catch (failure) {
-      captureFailed(failure);
+      captureFailed(
+        failure,
+        automatic &&
+          failure instanceof DOMException &&
+          ["NotAllowedError", "InvalidStateError", "AbortError"].includes(failure.name),
+      );
     } finally {
       if (mounted.current) setRequestingCapture(false);
     }
@@ -693,7 +711,9 @@ export function CreateProject({
     if (!selected || phase.current !== "ready" || starting.current) return;
     starting.current = true;
     recorder.current = null;
-    void popOutControls();
+    // A tab picked whole starts at once with no click to open a window from; Chrome's own
+    // sharing bar stops it there, and the tray in this tab can still float the controls.
+    if (!wholeFrame) void popOutControls();
     setError("");
     // Sharing can end or the sheet can close while this awaits; a late start must not record.
     const stale = () => !mounted.current || displayStream.current !== selected;
@@ -1058,6 +1078,7 @@ export function CreateProject({
           <div className="sheet-body rec-ready">
             <AreaSelector
               stream={display.stream}
+              still={display.surface === "monitor"}
               width={display.width}
               height={display.height}
               area={area}
@@ -1201,11 +1222,14 @@ export function CreateProject({
                 <label className="field">
                   Website URL
                   <input
-                    type="url"
+                    type="text"
                     inputMode="url"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     value={url}
-                    placeholder="https://example.com"
+                    placeholder="example.com"
                     onChange={(event) => setUrl(event.target.value)}
                     disabled={busy}
                     aria-describedby="website-help"
@@ -1462,10 +1486,15 @@ export function CreateProject({
                     <p className={`sheet-status ${recoverySaved ? "is-success" : "is-warning"}`}>
                       <Icon name={recoverySaved ? "checkCircle" : "warning"} />
                       <span>
+                        {leftOver
+                          ? `This is an unsaved recording from ${leftOver.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. Save or download it, or discard it to record a new one. `
+                          : ""}
                         {spoken
                           ? "Your voice is in this recording. Save it to keep that audio. AI narration will not run."
                           : recoverySaved
-                            ? "Your recording is saved for recovery in this browser."
+                            ? leftOver
+                              ? "It is kept in this browser until you decide."
+                              : "Your recording is saved for recovery in this browser."
                             : "Download a recovery copy before closing this page."}
                         {spoken && !recoverySaved
                           ? " Download a recovery copy before closing this page."
@@ -1520,6 +1549,7 @@ export function CreateProject({
                           spokenTake.current = false;
                           setRecording("idle");
                           setRecoverySaved(false);
+                          setLeftOver(null);
                           setError("");
                         }}
                       >
@@ -1589,7 +1619,7 @@ export function CreateProject({
               <button
                 className="button button-primary"
                 type="button"
-                onClick={chooseSource}
+                onClick={() => void chooseSource()}
                 disabled={
                   requestingCapture ||
                   !screenSupported ||

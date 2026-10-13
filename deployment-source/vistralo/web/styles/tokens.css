@@ -152,8 +152,6 @@
   --dock-offset: 24px;
   --dock-reserve: 104px;
   --dock-item: 40px;
-  --dock-reach: 180px;
-  --dock-drift: 10px;
   --tray-height: 48px;
   --tray-meter-width: 3px;
   --tray-meter-height: 16px;
@@ -267,7 +265,6 @@
     --motion-grid-delay: 0ms;
     --motion-dock: 0ms;
     --motion-sheet: 0ms;
-    --dock-drift: 0;
   }
 }
 

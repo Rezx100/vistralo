@@ -33,6 +33,7 @@ import { downloadAgentKit } from "./agent-kit";
 import { ProviderSettings } from "./features/ProviderSettings";
 import { copyText, isTyping, statusText } from "./utils";
 const docsUrl = "https://vistralo.com/#how";
+const SESSION_RESTORE_TIMEOUT_MS = 10000;
 const getMode = (): AppMode =>
   location.hash.startsWith("#demo") ||
   document
@@ -318,6 +319,8 @@ export default function App() {
     [loading, setLoading] = useState(true),
     [authenticated, setAuthenticated] = useState(false),
     [sessionReady, setSessionReady] = useState(() => getMode() !== "cloud"),
+    [sessionStalled, setSessionStalled] = useState(false),
+    [sessionAttempt, setSessionAttempt] = useState(0),
     [error, setError] = useState(""),
     [collapsed, setCollapsed] = useState(
       () => localStorage.getItem("vistralo-rail") === "collapsed",
@@ -347,9 +350,10 @@ export default function App() {
       () => localStorage.getItem("vistralo-direction") || "ltr",
     ),
     [profile, setProfile] = useState({
-      name: "Rezan Ferdous",
+      // Neutral until the account loads; a real person's name here would show to everyone.
+      name: getMode() === "demo" ? "Demo user" : "Account",
       email: "",
-      workspace: "Rezan’s workspace",
+      workspace: getMode() === "demo" ? "Demo workspace" : "Workspace",
     }),
     [health, setHealth] = useState("");
   const adapter = useMemo(() => createAdapter(mode), [mode]);
@@ -448,22 +452,35 @@ export default function App() {
     }
     let ignore = false;
     setSessionReady(false);
+    setSessionStalled(false);
+    // An expired session is refreshed over the network. If the sign-in service cannot
+    // be reached that never settles, so say so instead of waiting without end.
+    const stalled = setTimeout(() => {
+      if (!ignore) setSessionStalled(true);
+    }, SESSION_RESTORE_TIMEOUT_MS);
+    const settle = (signedIn: boolean) => {
+      if (ignore) return;
+      clearTimeout(stalled);
+      setSessionStalled(false);
+      setAuthenticated(signedIn);
+      setSessionReady(true);
+    };
     const subscription = cloud.auth.onAuthStateChange((_event, session) => {
-      if (ignore) return;
-      setAuthenticated(!!session);
-      setSessionReady(true);
-      if (!session) setProjects([]);
+      settle(!!session);
+      if (!ignore && !session) setProjects([]);
     });
-    cloud.auth.getSession().then(({ data }) => {
-      if (ignore) return;
-      setAuthenticated(!!data.session);
-      setSessionReady(true);
-    });
+    cloud.auth
+      .getSession()
+      .then(({ data }) => settle(!!data.session))
+      .catch(() => {
+        if (!ignore) setSessionStalled(true);
+      });
     return () => {
       ignore = true;
+      clearTimeout(stalled);
       subscription.data.subscription.unsubscribe();
     };
-  }, [mode]);
+  }, [mode, sessionAttempt]);
   useEffect(() => {
     if (mode === "cloud" && (!sessionReady || !authenticated)) return;
     refresh();
@@ -821,7 +838,23 @@ export default function App() {
       <main className="login-page">
         <div className="login-card">
           <h1>Vistralo</h1>
-          <p>Restoring your session…</p>
+          {sessionStalled ? (
+            <>
+              <p role="alert">
+                Vistralo cannot reach its sign-in service. Check your
+                connection, or try another network if this one blocks it.
+              </p>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => setSessionAttempt((attempt) => attempt + 1)}
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <p role="status">Restoring your session…</p>
+          )}
         </div>
       </main>
     );

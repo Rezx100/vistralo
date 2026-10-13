@@ -200,11 +200,13 @@ export function Projects({
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [current, onShortcuts]);
-  const createActions: MenuAction[] = materialFlows.map((item) => ({
+  // Every way to start, so the menu is complete where the dock's record actions are hidden.
+  const createActions: MenuAction[] = createFlows.map((item) => ({
     label: item.label,
     description: item.description,
     icon: item.icon,
     key: item.key,
+    separator: item === materialFlows[0],
     onClick: () => create(item.flow),
   }));
   const sortItems: MenuAction[] = [
@@ -393,7 +395,10 @@ export function Projects({
                   }}
                 >
                   {label}
-                  <CounterBadge count={counts[id as keyof typeof counts]} />
+                  {/* A zero before the first load reads as an empty workspace. */}
+                  {!(loading && !projects.length) && (
+                    <CounterBadge count={counts[id as keyof typeof counts]} />
+                  )}
                 </button>
               ))}
             </div>

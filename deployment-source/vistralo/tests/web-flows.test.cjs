@@ -44,7 +44,11 @@ test('video import enforces extension, nonempty source and the documented upload
 
 test('website creation rejects credentials and obvious private or executable input before creating a project',()=>{
   assert.equal(publicWebsite(' https://example.com/path '),'https://example.com/path');
-  for(const url of ['javascript:alert(1)','file:///tmp/a','https://user:pass@example.com','http://localhost:8000','http://127.0.0.1','http://192.168.1.1','http://10.0.0.2','http://172.16.1.2','relative/path']) assert.throws(()=>publicWebsite(url));
+  assert.equal(publicWebsite('mercury.com'),'https://mercury.com/');
+  assert.equal(publicWebsite('www.example.com/pricing'),'https://www.example.com/pricing');
+  assert.equal(publicWebsite('example.com:8443'),'https://example.com:8443/');
+  assert.equal(publicWebsite('http://example.com'),'http://example.com/');
+  for(const url of ['javascript:alert(1)','file:///tmp/a','https://user:pass@example.com','http://localhost:8000','http://127.0.0.1','http://192.168.1.1','http://10.0.0.2','http://172.16.1.2','relative/path','localhost:8000','192.168.1.1','mailto:someone@example.com','']) assert.throws(()=>publicWebsite(url));
 });
 
 test('recording recovery closes its database if a synchronous quota failure prevents staging',async()=>{

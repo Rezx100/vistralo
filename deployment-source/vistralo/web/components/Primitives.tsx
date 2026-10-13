@@ -266,7 +266,12 @@ export function Menu({
       ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
       ?.focus();
     const listener = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      // The trigger sits beside the menu in its .menu-anchor and toggles on click.
+      // Closing here as well would let that click open the menu straight back up.
+      if (ref.current?.closest(".menu-anchor")?.contains(target)) return;
+      onClose();
     };
     const timer = setTimeout(
       () => document.addEventListener("pointerdown", listener),

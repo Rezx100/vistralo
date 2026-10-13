@@ -37,13 +37,16 @@ export function validateVideo(file: File, cloud = false): void {
 }
 
 export function publicWebsite(raw: string): string {
+  const typed = raw.trim();
+  // People type "example.com"; only an explicit scheme (not a port) is kept as written.
+  const address = /^[a-z][a-z0-9+.-]*:(?!\d)/i.test(typed)
+    ? typed
+    : `https://${typed}`;
   let url: URL;
   try {
-    url = new URL(raw.trim());
+    url = new URL(address);
   } catch {
-    throw new Error(
-      "Enter a complete website URL, such as https://example.com.",
-    );
+    throw new Error("Enter a website address, such as example.com.");
   }
   if (
     !["https:", "http:"].includes(url.protocol) ||
