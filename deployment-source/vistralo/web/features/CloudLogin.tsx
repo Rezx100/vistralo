@@ -5,8 +5,11 @@ import { billingConfig } from "../billing/config";
 export function CloudLogin({
   onReady,
   onPlans,
+  theme,
 }: {
   onReady: () => Promise<unknown>;
+  /** The emblem has a light and a dark drawing; the wrong one disappears into the card. */
+  theme: string;
   /** Present when plans are switched on: opens the public price list. */
   onPlans?: () => void;
 }) {
@@ -69,7 +72,7 @@ export function CloudLogin({
   return (
     <main className="login-page">
       <div className="login-card">
-        <img src="/assets/brand/emblem-light.svg" width="32" height="32" alt="" />
+        <img src={`/assets/brand/emblem-${theme === "dark" ? "light" : "dark"}.svg`} width="32" height="32" alt="" />
         <h1>
           {recovering ? "Set your password" : signingUp ? "Create your Vistralo account" : "Sign in to Vistralo"}
         </h1>

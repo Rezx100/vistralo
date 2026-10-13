@@ -1795,6 +1795,10 @@ input.switch:disabled {
 .login-card .button {
   inline-size: 100%;
 }
+/* A link inside a sentence must not rely on colour alone. */
+.login-card p a {
+  text-decoration: underline;
+}
 .shared-page {
   max-inline-size: calc(var(--dialog-width) * 2);
   margin-inline: auto;

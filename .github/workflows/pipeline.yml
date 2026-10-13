@@ -51,6 +51,7 @@ jobs:
           npm audit
           node --check scripts/local-admin-worker.cjs
           node --check scripts/paddle-csp-probe.cjs
+          node --check scripts/web-signup-journey.cjs
           bash -n deploy/vps-worker-install.sh
 
   web-browser:
@@ -74,6 +75,7 @@ jobs:
           npm run test:web:a11y
           npm run test:web:journey
           npm run test:web:billing
+          npm run test:web:signup
       - name: Save screenshots and acceptance records
         if: always()
         uses: actions/upload-artifact@v4
