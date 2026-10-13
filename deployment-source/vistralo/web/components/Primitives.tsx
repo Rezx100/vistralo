@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useId } from "react";
 import { createRoot } from "react-dom/client";
 import { Icon } from "./Icon";
+import { Button, Field, Toggle } from "./Controls";
 export function CounterBadge({ count }: { count: number }) {
   return <span className="counter">{count}</span>;
 }
@@ -162,14 +163,7 @@ export function SheetToggle({
         {label}
         {hint && <small>{hint}</small>}
       </span>
-      <input
-        type="checkbox"
-        role="switch"
-        className="switch"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
+      <Toggle checked={checked} disabled={disabled} onChange={onChange} />
     </label>
   );
 }
@@ -202,22 +196,16 @@ export function ConfirmDialog({
       onClose={() => onDone(false)}
       footer={
         <>
-          <button
-            type="button"
-            className="button"
-            onClick={() => onDone(false)}
-            {...(tone ? { "data-autofocus": true } : {})}
-          >
+          <Button onClick={() => onDone(false)} {...(tone ? { "data-autofocus": true } : {})}>
             {cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={`button ${tone === "danger" ? "button-danger-solid" : "button-primary"}`}
+          </Button>
+          <Button
+            variant={tone === "danger" ? "danger" : "primary"}
             onClick={() => onDone(true)}
             {...(tone ? {} : { "data-autofocus": true })}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </>
       }
     />
@@ -385,21 +373,19 @@ export function TextDialog({
       onClose={() => !busy && onClose()}
       footer={
         <>
-          <button
-            type="button"
-            className="button"
-            onClick={onClose}
-            disabled={busy}
-          >
+          <Button onClick={onClose} disabled={busy}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            type="submit"
             form={formId}
-            className="button button-primary"
-            disabled={busy || !value.trim()}
+            variant="primary"
+            busy={busy}
+            busyLabel="Saving…"
+            disabled={!value.trim()}
           >
-            {busy ? "Saving…" : submitLabel}
-          </button>
+            {submitLabel}
+          </Button>
         </>
       }
     >
@@ -418,8 +404,7 @@ export function TextDialog({
           }
         }}
       >
-        <label className="field">
-          {label}
+        <Field label={label} error={error}>
           <input
             autoFocus
             required
@@ -428,12 +413,7 @@ export function TextDialog({
             onChange={(e) => setValue(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
           />
-        </label>
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        </Field>
       </form>
     </Dialog>
   );

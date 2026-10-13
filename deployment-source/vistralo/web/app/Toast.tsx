@@ -1,5 +1,5 @@
 import React, { useEffect, type Dispatch, type SetStateAction } from "react";
-import { Icon } from "../components/Icon";
+import { Toast as ToastSurface } from "../components/Controls";
 export function useToastDismiss(
   message: string,
   undo: string[] | null,
@@ -40,32 +40,14 @@ export function Toast({
         {message}
       </div>
       {message && (
-        <div
+        <ToastSurface
           key={message}
-          className={`toast is-${tone}`}
+          tone={tone}
+          message={message}
           inert={inert}
-        >
-          <span className="toast-icon" aria-hidden="true">
-            <Icon name={tone === "error" ? "warning" : "checkCircle"} />
-          </span>
-          <span className="toast-message">{message}</span>
-          {undo && (
-            <button
-              className="button button-ghost"
-              onClick={() => onUndo(undo)}
-            >
-              Undo
-            </button>
-          )}
-          <button
-            type="button"
-            className="toast-close"
-            aria-label="Dismiss notification"
-            onClick={() => onDismiss()}
-          >
-            <Icon name="close" />
-          </button>
-        </div>
+          action={undo ? { label: "Undo", onClick: () => onUndo(undo) } : undefined}
+          onDismiss={onDismiss}
+        />
       )}
     </>
   );

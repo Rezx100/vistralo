@@ -30,7 +30,7 @@ const out = process.env.VISTRALO_WEB_OUT || "server-ui";
   );
   fs.writeFileSync(
     path.join(out, "index.html"),
-    '<!doctype html>\n<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0B0D12"><title>Vistralo</title><link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script></head><body><div id="root"></div></body></html>\n',
+    '<!doctype html>\n<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#F4F5F7"><title>Vistralo</title><link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/tokens.css"><link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script></head><body><div id="root"></div></body></html>\n',
   );
 })().catch((error) => {
   console.error(error.message);

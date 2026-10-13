@@ -62,7 +62,7 @@ export default function App() {
     [message, setMessage] = useState(""),
     [undo, setUndo] = useState<string[] | null>(null),
     [theme, setTheme] = useState(
-      () => localStorage.getItem("vistralo-theme") || "dark",
+      () => localStorage.getItem("vistralo-theme") || "light",
     ),
     [locale, setLocale] = useState(
       () => localStorage.getItem("vistralo-locale") || "en",
