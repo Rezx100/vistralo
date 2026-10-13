@@ -32,6 +32,35 @@ async function main() {
     assert.ok(before > 0, 'Demo projects are listed');
     checks.push('demo Projects workspace renders with its sample projects');
 
+    // Foundations: light is the default, the page title is set in the wide display face, and nothing is blurred.
+    await page.evaluate(() => document.fonts.ready);
+    const foundations = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement), title = getComputedStyle(document.querySelector('h1'));
+      return {
+        theme: document.documentElement.dataset.theme,
+        scheme: root.colorScheme,
+        page: getComputedStyle(document.body).backgroundColor,
+        archivo: document.fonts.check('600 28px Archivo'),
+        titleFace: title.fontFamily.split(',')[0].trim(),
+        titleStretch: title.fontStretch,
+        edgeFace: (() => { const probe = document.body.appendChild(Object.assign(document.createElement('span'), {className:'edge', textContent:'07'})); const style = getComputedStyle(probe); const out = [style.fontStretch, style.fontVariantNumeric, style.textTransform].join(' '); probe.remove(); return out; })(),
+      };
+    });
+    assert.deepEqual(foundations, {theme:'light', scheme:'light', page:'rgb(244, 245, 247)', archivo:true, titleFace:'Archivo', titleStretch:'112%', edgeFace:'78% tabular-nums uppercase'});
+    const blurred = async () => page.evaluate(() => Array.from(document.querySelectorAll('*')).filter(node => { const style = getComputedStyle(node); return style.backdropFilter !== 'none' || (style.filter !== 'none' && style.filter.includes('blur')); }).map(node => node.className));
+    assert.deepEqual(await blurred(), [], 'Nothing on the page is blurred');
+    await page.getByRole('button', {name:'More actions for Homepage motion study', exact:true}).click();
+    await page.getByRole('menuitem', {name:'Rename', exact:true}).click();
+    const rename = page.getByRole('dialog', {name:/^Rename/});
+    assert.deepEqual(await blurred(), [], 'A dialog and its backdrop are not blurred');
+    const field = rename.getByLabel('Project name', {exact:true});
+    assert.equal(await field.inputValue(), 'Homepage motion study', 'The field is labelled and holds the current name');
+    assert.equal(await rename.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)', 'A dialog is an opaque surface');
+    assert.equal(await rename.getByRole('button', {name:'Save', exact:true}).evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(75, 82, 207)', 'The primary button is the one pencil colour');
+    await page.keyboard.press('Escape');
+    await rename.waitFor({state:'detached'});
+    checks.push('light is the default theme, titles use the wide display face, and no surface is blurred or translucent');
+
     // The create bar shows its record actions at rest, stays put, and its button opens and closes the menu.
     const create = page.getByRole('button', {name:'New project', exact:true});
     const bar = page.getByRole('toolbar', {name:'Create', exact:true});

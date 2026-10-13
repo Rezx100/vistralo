@@ -32,7 +32,7 @@ colors:
   dark-elevated: "#1e222c"
   dark-ink: "#f4f5f8"
   dark-ink-2: "#b9bdc8"
-  dark-ink-3: "#8e93a3"
+  dark-ink-3: "#9ea3b2"
   dark-hairline: "#2a2d38"
   dark-control-border: "#747a91"
   dark-pencil-soft: "#a8adfd"

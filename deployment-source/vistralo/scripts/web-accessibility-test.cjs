@@ -9,7 +9,7 @@ const { serve } = require('./static-server.cjs');
 (async () => {
   const output = path.resolve('evidence/web-accessibility');
   fs.mkdirSync(output, {recursive:true});
-  const app = await serve(8789);
+  const app = await serve(Number(process.env.VISTRALO_UI_TEST_PORT || 8788) + 1);
   const origin = app.origin;
   let browser;
   const evidence = [];

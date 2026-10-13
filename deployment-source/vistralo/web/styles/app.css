@@ -57,9 +57,12 @@ p {
   margin: 0;
 }
 h1 {
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-display);
   font-size: var(--font-title);
   line-height: var(--line-title);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-title);
   text-wrap: balance;
 }
 h2 {
@@ -79,6 +82,17 @@ small,
   font-size: var(--font-caption);
   line-height: var(--line-caption);
   color: var(--fg-3);
+}
+/* Edge print: a fact about a piece of media (number, length, type, state), set like the print along a strip of film. */
+.edge {
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-edge);
+  font-size: var(--font-edge);
+  line-height: var(--line-edge);
+  font-weight: var(--weight-edge);
+  letter-spacing: var(--tracking-edge);
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
 }
 svg {
   flex-shrink: 0;
@@ -107,18 +121,33 @@ button {
   justify-content: center;
   gap: var(--space-2);
   min-block-size: var(--control-size);
-  border: var(--border-width) solid var(--control-border-strong);
+  border: var(--border-width) solid var(--control-border);
   background: var(--bg-card);
   border-radius: var(--radius-control);
   padding: var(--space-1) var(--space-3);
   color: var(--fg-1);
+  font-size: var(--font-label);
+  line-height: var(--line-label);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
   text-decoration: none;
 }
 .button:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
-  background: var(--bg-elevated);
+  background: var(--card-hover-bg);
   text-decoration: none;
+}
+.button:active:not(:disabled),
+.icon-button:active:not(:disabled) {
+  background: var(--card-pressed-bg);
+}
+/* The one primary action on a page is a step taller than everything else. */
+.button-large {
+  min-block-size: var(--control-primary);
+  padding-inline: var(--space-4);
+}
+.button[aria-busy="true"] {
+  cursor: progress;
 }
 .icon-button {
   inline-size: var(--control-size);
@@ -132,7 +161,6 @@ button {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--primary-fg);
-  box-shadow: var(--primary-inset);
 }
 .button-primary:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -144,6 +172,34 @@ button {
 .button-ghost {
   background: transparent;
   border-color: transparent;
+}
+.button-ghost:hover:not(:disabled),
+.icon-button:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+.button-ghost:active:not(:disabled),
+.icon-button:active:not(:disabled) {
+  background: var(--pressed-bg);
+}
+/* Record is the only pill-shaped button and the only red one, so it is recognisable by shape as well as colour. */
+.button-record {
+  background: var(--record);
+  border-color: var(--record);
+  border-radius: var(--radius-pill);
+  color: var(--primary-fg);
+  padding-inline: var(--space-4);
+}
+.button-record::before {
+  content: "";
+  inline-size: var(--record-dot);
+  block-size: var(--record-dot);
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+.button-record:hover:not(:disabled),
+.button-record:active:not(:disabled) {
+  background: var(--record-hover);
+  border-color: var(--record-hover);
 }
 .button-danger {
   color: var(--danger-fg);
@@ -162,18 +218,62 @@ button {
   flex-direction: column;
   gap: var(--space-2);
   margin-block: var(--space-4);
-  color: var(--fg-2);
+  color: var(--fg-1);
+  font-size: var(--font-label);
+  line-height: var(--line-label);
+  font-weight: var(--weight-medium);
+}
+.field > input,
+.field > select,
+.field > textarea {
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+  font-weight: var(--weight-regular);
+}
+.field > input:not([type="checkbox"]),
+.field > select {
+  min-block-size: var(--control-primary);
+}
+.field-hint,
+.field-error {
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+  font-weight: var(--weight-regular);
+  color: var(--fg-3);
+}
+.field-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--danger-fg);
+}
+.field-error svg {
+  inline-size: var(--icon-small);
+  block-size: var(--icon-small);
+}
+.field.is-invalid > input,
+.field.is-invalid > select,
+.field.is-invalid > textarea,
+input[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--danger-fg);
 }
 input:not([type="checkbox"]),
 select,
 textarea {
-  background: var(--bg-page);
-  border: var(--border-width) solid var(--control-border-strong);
+  background: var(--bg-elevated);
+  border: var(--border-width) solid var(--control-border);
   border-radius: var(--radius-control);
   padding: var(--space-2) var(--space-3);
   min-block-size: var(--control-size);
   max-inline-size: 100%;
   color: var(--fg-1);
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+input:not([type="checkbox"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--accent);
 }
 input::placeholder,
 textarea::placeholder {
@@ -1066,12 +1166,10 @@ progress::-webkit-progress-value {
   max-inline-size: calc(100vw - var(--space-8));
   z-index: 60;
   padding: var(--space-1);
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--radius-card);
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--glass-shadow);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
   animation: menu-in var(--motion-fast) var(--motion-ease);
   max-block-size: 70dvh;
   overflow-y: auto;
@@ -1135,11 +1233,9 @@ progress::-webkit-progress-value {
   inline-size: max-content;
   max-inline-size: var(--menu-width);
   padding: var(--space-1) var(--space-2);
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: var(--border-width) solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: var(--bg-elevated);
+  border: var(--border-width) solid var(--divider);
+  box-shadow: var(--shadow);
   border-radius: var(--radius-primary);
   color: var(--fg-1);
   font-size: var(--font-caption);
@@ -1183,12 +1279,10 @@ progress::-webkit-progress-value {
   max-block-size: calc(100dvh - var(--space-8));
   margin: auto;
   padding: 0;
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--sheet-radius);
-  background: var(--sheet-bg);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--sheet-shadow);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
   color: var(--fg-1);
   overflow: hidden;
   animation: sheet-in var(--motion-sheet) var(--motion-sheet-ease) both;
@@ -1204,8 +1298,6 @@ progress::-webkit-progress-value {
 }
 .sheet::backdrop {
   background: var(--sheet-backdrop);
-  -webkit-backdrop-filter: var(--sheet-backdrop-blur);
-  backdrop-filter: var(--sheet-backdrop-blur);
   animation: sheet-backdrop-in var(--motion-sheet) var(--motion-ease) both;
 }
 .sheet-form {
@@ -1226,7 +1318,7 @@ progress::-webkit-progress-value {
   border-radius: var(--radius-card);
   background: var(--sheet-group-bg);
   color: var(--fg-1);
-  box-shadow: inset 0 0 0 var(--border-width) var(--glass-border);
+  box-shadow: inset 0 0 0 var(--border-width) var(--divider);
 }
 .sheet-icon.is-danger {
   background: var(--danger-bg);
@@ -1260,7 +1352,7 @@ progress::-webkit-progress-value {
   padding: 0;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--glass-hover);
+  background: var(--hover-bg);
   color: var(--fg-2);
 }
 .sheet-close svg,
@@ -1270,7 +1362,7 @@ progress::-webkit-progress-value {
 }
 .sheet-close:hover,
 .toast-close:hover {
-  background: var(--glass-pressed);
+  background: var(--pressed-bg);
   color: var(--fg-1);
 }
 .sheet-body {
@@ -1309,21 +1401,11 @@ progress::-webkit-progress-value {
 .sheet-media-bar .button {
   min-block-size: var(--control-primary);
   padding-inline: var(--space-4);
-  border-radius: var(--radius-pill);
-  font-weight: var(--weight-medium);
-}
-.sheet-footer .button:not(.button-primary, .button-danger-solid, .button-ghost) {
-  border-color: var(--glass-border);
-  background: var(--glass-hover);
-}
-.sheet-footer .button:not(.button-primary, .button-danger-solid, .button-ghost):hover:not(:disabled) {
-  background: var(--glass-pressed);
 }
 .button-danger-solid {
   background: var(--danger-solid);
   border-color: var(--danger-solid);
   color: var(--primary-fg);
-  box-shadow: var(--primary-inset);
 }
 .button-danger-solid:hover:not(:disabled) {
   background: var(--danger-solid-hover);
@@ -1365,7 +1447,7 @@ progress::-webkit-progress-value {
 .sheet textarea {
   min-block-size: var(--control-primary);
   padding-inline: var(--space-3);
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--radius-card);
   background: var(--sheet-field-bg);
   font-weight: var(--weight-regular);
@@ -1378,19 +1460,19 @@ progress::-webkit-progress-value {
 .sheet textarea:focus-visible {
   outline: 0;
   border-color: var(--focus);
-  box-shadow: 0 0 0 var(--focus-ring) var(--glass-hover);
+  box-shadow: 0 0 0 var(--focus-ring) var(--hover-bg);
 }
 .sheet-group {
   margin: 0;
   padding: 0;
   list-style: none;
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--radius-card);
   background: var(--sheet-group-bg);
   overflow: hidden;
 }
 .sheet-group > * + * {
-  border-block-start: var(--border-width) solid var(--glass-divider);
+  border-block-start: var(--border-width) solid var(--divider);
 }
 .sheet-row {
   display: flex;
@@ -1468,7 +1550,7 @@ input.switch:disabled {
 }
 .sheet-note {
   padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--radius-card);
   background: var(--sheet-group-bg);
   font-size: var(--font-caption);
@@ -1508,7 +1590,7 @@ input.switch:disabled {
   grid-auto-columns: 1fr;
   gap: var(--space-1);
   padding: var(--space-1);
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--radius-pill);
   background: var(--sheet-group-bg);
   flex-shrink: 0;
@@ -1583,7 +1665,7 @@ input.switch:disabled {
   min-block-size: var(--menu-item-height);
 }
 .shortcut-list > div + div {
-  border-block-start: var(--border-width) solid var(--glass-divider);
+  border-block-start: var(--border-width) solid var(--divider);
 }
 .shortcut-list dt {
   order: 2;
@@ -1595,9 +1677,9 @@ input.switch:disabled {
 .shortcut-list kbd {
   display: inline-block;
   padding: 0 var(--space-2);
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--radius-control);
-  background: var(--glass-hover);
+  background: var(--hover-bg);
   color: var(--fg-1);
   line-height: var(--line-body);
 }
@@ -1611,7 +1693,6 @@ input.switch:disabled {
 }
 .provider-settings > .button {
   justify-self: start;
-  border-radius: var(--radius-pill);
   min-block-size: var(--control-primary);
   padding-inline: var(--space-4);
 }
@@ -1635,14 +1716,12 @@ input.switch:disabled {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   min-block-size: var(--dock-height);
-  border: var(--border-width) solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--glass-shadow);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-card);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
   z-index: 90;
   animation: toast-in var(--motion-sheet) var(--motion-sheet-ease) both;
 }
@@ -1659,7 +1738,6 @@ input.switch:disabled {
   font-weight: var(--weight-medium);
 }
 .toast .button {
-  border-radius: var(--radius-pill);
   color: var(--accent-soft);
   font-weight: var(--weight-semibold);
 }
@@ -1836,7 +1914,6 @@ input.switch:disabled {
     opacity: 0;
     scale: var(--sheet-enter-scale);
     translate: 0 var(--motion-enter-distance);
-    filter: var(--sheet-enter-blur);
   }
 }
 @keyframes sheet-backdrop-in {
@@ -1849,7 +1926,6 @@ input.switch:disabled {
     opacity: 0;
     scale: var(--sheet-enter-scale);
     translate: 0 var(--space-4);
-    filter: var(--sheet-enter-blur);
   }
 }
 @keyframes fade {
@@ -2360,12 +2436,10 @@ body:has(.create-dock) .toast {
   max-inline-size: calc(100vw - var(--space-8));
   block-size: var(--dock-height);
   padding: var(--space-1);
-  border: var(--border-width) solid var(--glass-border);
+  border: var(--border-width) solid var(--divider);
   border-radius: var(--radius-pill);
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--glass-shadow);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
   animation: dock-in var(--motion-dock) var(--motion-spring) both;
 }
 [dir="rtl"] .create-dock {
@@ -2395,11 +2469,11 @@ body:has(.create-dock) .toast {
     transform var(--motion-fast) var(--motion-ease);
 }
 .dock-action:hover {
-  background: var(--glass-hover);
+  background: var(--hover-bg);
   color: var(--fg-1);
 }
 .dock-action:active {
-  background: var(--glass-pressed);
+  background: var(--pressed-bg);
   transform: scale(0.96);
 }
 .dock-action:focus-visible {
@@ -2410,7 +2484,7 @@ body:has(.create-dock) .toast {
   inline-size: var(--border-width);
   block-size: var(--control-small);
   margin-inline: var(--space-1) var(--space-2);
-  background: var(--glass-divider);
+  background: var(--divider);
 }
 .dock-primary {
   display: inline-flex;
@@ -2462,12 +2536,10 @@ body:has(.create-dock) .toast {
   inset-block-start: auto;
   inset-block-end: calc(100% + var(--space-3));
   padding: var(--space-2);
-  border-color: var(--glass-border);
+  border-color: var(--divider);
   border-radius: var(--radius-card);
   background: var(--bg-elevated);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--shadow);
   transform-origin: bottom right;
   animation: dock-menu-in var(--motion-enter) var(--motion-spring) both;
 }
