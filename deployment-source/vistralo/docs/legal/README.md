@@ -17,6 +17,7 @@ The drafts here map product behavior to information a reviewer needs. Replace ev
 | Voice | The approved script text is sent to HeyGen; the returned audio is stored with the project | HeyGen contract, data location, retention and voice authorization |
 | Provider keys | Entered by the owner, sealed in the browser to the worker's public key, stored only as ciphertext in `vistralo_provider_settings` | Key rotation and deletion when an account closes |
 | Operational data | Vercel and Supabase request logs; the worker's systemd journal on the VPS | Inventory actual logs and retention; avoid claiming logs contain no personal data |
+| Payments (built, switched off; see `docs/BILLING.md`) | Paddle is the merchant of record and holds card and billing details; Vistralo stores only the Paddle customer and subscription IDs, plan, status and dates in `vistralo_billing_customers` and `vistralo_billing_subscriptions`, and a ledger of webhook event IDs. Checkout loads Paddle.js and a Paddle frame in the app, and passes the account's email and ID to Paddle | Paddle's role and entity, what Paddle.js stores in the browser, transfer mechanism, how long billing records are kept after an account closes |
 
 Do not launch public multi-user signups based on these draft notices. No analytics or advertising SDK was found in the inspected source; reassess when a marketing site, telemetry or payment service is added. “No sale/share” and “no model training” are not legal statements until all provider terms and actual operations have been checked.
 
@@ -26,7 +27,7 @@ Do not launch public multi-user signups based on these draft notices. No analyti
 2. Hosting and backup countries; exact retention/deletion schedule for projects, uploads, sessions, logs, backups and provider data; rights request identity-check and response workflow.
 3. OpenAI/HeyGen and host contracts, subprocessors, international transfer safeguards, and whether EU and UK representatives or a DPO are required.
 4. Whether California CCPA/CPRA applies to the operator and whether data is sold/shared; other US state thresholds and rights if public service expands.
-5. Commercial terms: service owner, payments/refunds (if any), acceptable use, customer recording rights, service availability, support, termination, dispute venue and liability provisions.
+5. Commercial terms: service owner, payments/refunds, acceptable use, customer recording rights, service availability, support, termination, dispute venue and liability provisions. Payments will go through Paddle (decided 13 October 2026), which asks for terms, a privacy notice and a **refund policy** reachable from the site's navigation before it approves live payments: see `REFUND-POLICY-DRAFT.md`. The terms must name Paddle as reseller and merchant of record.
 6. Tested account deletion and export paths before public signups. A statement in a policy cannot substitute for an implemented request process.
 
 ## Regulatory references

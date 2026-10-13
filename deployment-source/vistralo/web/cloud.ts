@@ -3,6 +3,8 @@ import type { WorkspaceAdapter, Project, ProjectDetail, CreateProjectInput, Proj
 import { uuid } from './id';
 import { abortIfNeeded, checksum } from './checksum';
 import { posterFrame } from './poster';
+import { billingConfig } from './billing/config';
+import { freeState, limitReached, planLimit, type BillingState, type LimitKind } from './billing/plans';
 
 declare const VISTRALO_SUPABASE_URL: string;
 declare const VISTRALO_SUPABASE_KEY: string;
@@ -23,7 +25,11 @@ export async function cloudAccount() {
   const {data}=await client.auth.getSession();
   const user=data.session?.user;
   if(!user) throw Error('Sign in to Vistralo.');
-  const account=unwrap<{role:string,user_id:string,display_name:string,workspace_name:string}>(await client.from('vistralo_accounts').select('*').eq('user_id',user.id).single());
+  const read=()=>client.from('vistralo_accounts').select('*').eq('user_id',user.id).maybeSingle();
+  let found=await read();
+  // A verified self-serve sign-up has no workspace until this runs; the database refuses it while sign-up is closed.
+  if(!found.error&&!found.data&&billingConfig.signup){unwrap(await client.rpc('vistralo_complete_signup'));found=await read();}
+  const account=unwrap<{role:string,user_id:string,display_name:string,workspace_name:string}>(found);
   if(!account) throw Error('Your account has not been granted workspace access.');
   return {...account,email:user.email||''};
 }
@@ -31,6 +37,29 @@ export class CloudAdapter implements WorkspaceAdapter {
   readonly mode='cloud' as const;
   capabilities={manage:true,share:true,workspaceAccess:false,upload:true,capture:true,providers:true,localOnly:false};
   private urls=new Map<string,{url:string,until:number}>();
+  private billing:{state:BillingState,at:number}|null=null;
+  private async billingState(fresh=false):Promise<BillingState>{
+    if(!fresh&&this.billing&&Date.now()-this.billing.at<10000)return this.billing.state;
+    const account=await cloudAccount();
+    const result=await required().rpc('vistralo_billing_state');
+    // PGRST202: the billing migration has not been applied to this workspace yet.
+    if(result.error&&result.error.code!=='PGRST202')throw Error(result.error.message);
+    const state={...(result.error?freeState({unavailable:true}):result.data as BillingState),account:{id:account.user_id,email:account.email}};
+    this.billing={state,at:Date.now()};
+    return state;
+  }
+  // Checked before the work starts so nobody uploads a recording only to be refused. The database enforces the same limits.
+  private async guard(kind:LimitKind,wanted=0){
+    if(!billingConfig.enabled)return;
+    const state=await this.billingState();
+    if(limitReached(state,kind,wanted))throw planLimit(state,kind);
+  }
+  // 42501 is a row-level security refusal: the limit was reached between the check above and the write.
+  private async limited<T,>(kind:LimitKind,result:{data?:T|null,error:any}):Promise<NonNullable<T>>{
+    this.billing=null;
+    if(billingConfig.enabled&&result.error?.code==='42501'){const state=await this.billingState(true);if(state.enforce)throw planLimit(state,kind);}
+    return unwrap(result);
+  }
   async login(value:string){const {email,password}=JSON.parse(value);const result=await required().auth.signInWithPassword({email,password});if(result.error)throw result.error;await cloudAccount();}
   async logout(){unwrap(await required().auth.signOut());this.urls.clear();}
   async settings(patch?:WorkspaceSettings){const account=await cloudAccount();if(patch)unwrap(await required().from('vistralo_accounts').update({display_name:String(patch.displayName||account.display_name),workspace_name:String(patch.name||account.workspace_name)}).eq('user_id',account.user_id));return {displayName:account.display_name,email:account.email,name:account.workspace_name,role:account.role};}
@@ -101,12 +130,12 @@ export class CloudAdapter implements WorkspaceAdapter {
     await required().storage.from('vistralo-media').remove([target]).catch(()=>{});
     throw Error('This project changed in another session. Refresh and try again.');
   }
-  async create(input:CreateProjectInput){const account=await cloudAccount();const id=uuid();const p:Project={id,name:input.name,type:input.type||(input.source==='web'?'brief':'walkthrough'),source:input.source,url:input.url,status:'draft',access:'private',created:now(),updated:now(),eventAt:now(),eventLabel:'Updated',data:{files:{}}};unwrap(await required().from('vistralo_projects').insert({id,owner_id:account.user_id,document:p}));return p;}
+  async create(input:CreateProjectInput){const account=await cloudAccount();await this.guard('projects');const id=uuid();const p:Project={id,name:input.name,type:input.type||(input.source==='web'?'brief':'walkthrough'),source:input.source,url:input.url,status:'draft',access:'private',created:now(),updated:now(),eventAt:now(),eventLabel:'Updated',data:{files:{}}};await this.limited('projects',await required().from('vistralo_projects').insert({id,owner_id:account.user_id,document:p}));return p;}
   private async save(id:string,mutate:(p:Project)=>Project){const row=await this.row(id);const p=mutate(row.document);p.updated=now();const saved=unwrap(await required().from('vistralo_projects').update({document:p,updated_at:p.updated}).eq('id',id).eq('updated_at',row.updated_at).select('id'));if(!saved.length)throw Error('This project changed in another session. Refresh and try again.');return this.sign(p);}
   async update(id:string,patch:ProjectPatch){if(patch.access&&patch.access!=='private')throw Error('Use a read-only share link to grant access.');return this.save(id,p=>({...p,...patch,eventLabel:patch.lastOpened?'Updated':'Edited',eventAt:patch.lastOpened?p.eventAt:now()}));}
   async duplicate(id:string){const original=await this.row(id);if(Object.keys(original.document.data.files||{}).length)throw Error('Duplicate a media project by uploading its source into a new project. Originals stay private.');const next=await this.create({...original.document,name:original.document.name+' (copy)'});return this.save(next.id,p=>({...p,data:structuredClone(original.document.data)}));}
   async trash(ids:string[]){for(const id of ids){await this.save(id,p=>({...p,trashed:true,trashedAt:now()}));unwrap(await required().from('vistralo_shares').update({revoked:true}).eq('project_id',id));}}
-  async restore(ids:string[]){for(const id of ids)await this.save(id,p=>({...p,trashed:false,trashedAt:undefined}));}
+  async restore(ids:string[]){await this.guard('projects');this.billing=null;for(const id of ids)await this.save(id,p=>({...p,trashed:false,trashedAt:undefined}));}
   async remove(ids:string[]){for(const id of ids){const row=await this.row(id);if(!row.document.trashed)throw Error('Move the project to Trash first.');const files=[...new Set([...Object.keys(row.document.data.files||{}),...(ownPoster({...row.document,id})?[row.document.thumbnail!]:[])])];if(files.length)unwrap(await required().storage.from('vistralo-media').remove(files));unwrap(await required().from('vistralo_projects').delete().eq('id',id));}}
   async project(id:string):Promise<ProjectDetail>{const row=await this.row(id);const jobs=unwrap(await required().from('vistralo_jobs').select('*').eq('project_id',id).order('created_at',{ascending:false}));const started=row.document.status==='queued'&&jobs.some((job:any)=>job.state==='processing');const p=await this.sign(started?{...row.document,status:'processing'}:row.document);return {project:p,files:Object.entries(p.data.files||{}).map(([file,value]:[string,any])=>({file,...value})),evidence:p.data.evidence||null,jobs,events:[],progress:await this.liveProgress(jobs),shares:await this.shares(id),brief:p.data.brief};}
   private async liveProgress(jobs:any[]){
@@ -180,6 +209,7 @@ export class CloudAdapter implements WorkspaceAdapter {
     abortIfNeeded(options.signal);
     const account=await cloudAccount();const row=await this.row(id);if(row.document.trashed)throw Error('Restore this project before uploading.');
     const ext=file.name.split('.').pop()?.toLowerCase();if(!['mp4','webm','mov','mkv','wav','mp3','m4a','srt','vtt'].includes(ext||''))throw Error('Unsupported media format.');
+    if(options.voice==='ai'||(row.document.source==='screen'&&!options.voice))await this.guard('jobs');
     const digest=await checksum(file,options);
     const resumeKey=`vistralo-cloud-upload:${id}:${digest}:${file.size}`;
     const stored=JSON.parse(localStorage.getItem(resumeKey)||'null') as {target?:string}|null;
@@ -195,7 +225,7 @@ export class CloudAdapter implements WorkspaceAdapter {
       const voiceover=options.voice==='ai'||(saved.document.source==='screen'&&options.voice!=='original');
       if(voiceover){
         if(!await this.workerReady())return {file:target,sha256:digest,voice:'offline' as const};
-        unwrap(await required().from('vistralo_jobs').insert({project_id:id,owner_id:account.user_id,kind:'narrate',payload:{auto:true}}));
+        await this.limited('jobs',await required().from('vistralo_jobs').insert({project_id:id,owner_id:account.user_id,kind:'narrate',payload:{auto:true}}));
         await this.save(id,p=>({...p,status:'queued'}));
         return {file:target,sha256:digest,voice:'queued' as const};
       }
@@ -204,10 +234,22 @@ export class CloudAdapter implements WorkspaceAdapter {
     } catch(e){await this.save(id,p=>({...p,status:'failed',error:(e as Error).message}));throw e;}
   }
   async shares(id:string):Promise<ShareLink[]>{const rows=unwrap(await required().from('vistralo_shares').select('id,expires_at,created_at,revoked').eq('project_id',id));return rows.map(r=>({id:r.id,expiresAt:r.expires_at,created:r.created_at,revoked:r.revoked}));}
-  async share(id:string,days:1|7|30=7){const row=await this.row(id);if(row.document.trashed)throw Error('Restore the project first.');if(!row.document.data.output?.file&&!row.document.data.brief)throw Error('Finish the output or save a brief before sharing.');const token=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,'0')).join('');const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))).map(b=>b.toString(16).padStart(2,'0')).join('');const data=unwrap<{id:string,expires_at:string}>(await required().from('vistralo_shares').insert({project_id:id,owner_id:row.owner_id,token_hash:hash,expires_at:new Date(Date.now()+days*86400000).toISOString()}).select().single());return {id:data.id,url:`${VISTRALO_SUPABASE_URL}/functions/v1/vistralo-share?t=${token}`,expiresAt:data.expires_at};}
+  async share(id:string,days:1|7|30=7){const row=await this.row(id);if(row.document.trashed)throw Error('Restore the project first.');if(!row.document.data.output?.file&&!row.document.data.brief)throw Error('Finish the output or save a brief before sharing.');await this.guard('share',days);const token=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,'0')).join('');const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))).map(b=>b.toString(16).padStart(2,'0')).join('');const data=await this.limited<{id:string,expires_at:string}>('share',await required().from('vistralo_shares').insert({project_id:id,owner_id:row.owner_id,token_hash:hash,expires_at:new Date(Date.now()+days*86400000).toISOString()}).select().single());return {id:data.id,url:`${VISTRALO_SUPABASE_URL}/functions/v1/vistralo-share?t=${token}`,expiresAt:data.expires_at};}
   async revoke(id:string){unwrap(await required().from('vistralo_shares').update({revoked:true}).eq('id',id));}
   async rpc<T=any>(method:string,args:Record<string,any>={}):Promise<T>{
     if(method==='check'){await cloudAccount();return {database:'connected',worker:await this.workerReady()} as T;}
+    if(method==='billing')return await this.billingState(args.fresh===true) as T;
+    if(method==='billingAction'){
+      // The Paddle API key lives in the vistralo-billing function; the browser only names the action.
+      const {data,error}=await required().functions.invoke('vistralo-billing',{body:args});
+      if(error){
+        let message='';
+        try{message=(await (error as any).context?.json())?.error||'';}catch{/* Not a JSON reply. */}
+        throw Error(message||'Billing is not available right now. Try again in a moment.');
+      }
+      this.billing=null;
+      return data as T;
+    }
     if(method==='briefSave'){const text=String(args.text||'');if(text.length>1024*1024)throw Error('Brief exceeds 1 MB.');return await this.save(args.id,p=>({...p,eventLabel:'Edited',eventAt:now(),data:{...p.data,brief:text}})) as T;}
     if(method==='plan'){return await this.save(args.id,p=>({...p,eventLabel:'Edited',eventAt:now(),data:{...p.data,editPlan:args.plan,output:null}})) as T;}
     if(method==='mediaInfo'){const row=await this.row(args.id);const info=row.document.data.mediaInfo;if(info&&row.document.video===args.file)return info;throw Error('Media inspection requires the connected capture worker.');}
@@ -215,10 +257,11 @@ export class CloudAdapter implements WorkspaceAdapter {
     if(method==='walkthrough'||method==='process'){
       if(!await this.workerReady())throw Error('The capture and render worker is offline. Your project is saved; try again when it reconnects.');
       const row=await this.row(args.id);const kind=method==='walkthrough'?'website':'render';
+      if(kind==='website')await this.guard('jobs');
       if(kind==='render'&&args.action!=='render'&&args.action!=='remux')throw Error('Only trim rendering and MP4 previews are supported in this cloud workspace.');
       if(kind==='render'&&args.action==='remux'&&!row.document.video)throw Error('Upload a source video before creating an MP4 preview.');
       const payload=kind==='website'?{url:args.url,viewports:args.viewports,narrate:args.narrate===true}:args.action==='remux'?{mode:'preview'}:{plan:row.document.data.editPlan};
-      const job=unwrap(await required().from('vistralo_jobs').insert({project_id:args.id,owner_id:row.owner_id,kind,payload}).select().single());
+      const job=await this.limited('jobs',await required().from('vistralo_jobs').insert({project_id:args.id,owner_id:row.owner_id,kind,payload}).select().single());
       await this.save(args.id,p=>({...p,status:'queued',error:undefined}));return job as T;
     }
     if(method==='cancel'){
@@ -256,7 +299,8 @@ export class CloudAdapter implements WorkspaceAdapter {
       const row=await this.row(args.id);
       if(row.document.trashed)throw Error('Restore this project first.');
       if(!row.document.video)throw Error('Upload a recording before adding an AI voice-over.');
-      const job=unwrap(await required().from('vistralo_jobs').insert({project_id:args.id,owner_id:row.owner_id,kind:'narrate',payload:{auto:true}}).select().single());
+      await this.guard('jobs');
+      const job=await this.limited('jobs',await required().from('vistralo_jobs').insert({project_id:args.id,owner_id:row.owner_id,kind:'narrate',payload:{auto:true}}).select().single());
       await this.save(args.id,p=>({...p,status:'queued',error:undefined}));
       return job as T;
     }
@@ -267,8 +311,9 @@ export class CloudAdapter implements WorkspaceAdapter {
       if(!text)throw Error('Draft a narration script before generating audio.');
       if(text.length>5000)throw Error('Narration script must be 5000 characters or fewer.');
       if(!row.document.data.walkthroughVideo)throw Error('Capture the website before narrating it.');
+      await this.guard('jobs');
       await this.save(args.id,p=>({...p,status:'queued',error:undefined,data:{...p.data,script:text,scriptApproved:true}}));
-      const job=unwrap(await required().from('vistralo_jobs').insert({project_id:args.id,owner_id:row.owner_id,kind:'narrate',payload:{}}).select().single());
+      const job=await this.limited('jobs',await required().from('vistralo_jobs').insert({project_id:args.id,owner_id:row.owner_id,kind:'narrate',payload:{}}).select().single());
       return job as T;
     }
     throw Error('This action is not available in the cloud workspace yet.');

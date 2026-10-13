@@ -12,6 +12,7 @@ const { composeNarrated, composeWalkthrough } = require('../src/editor.cjs');
 const { detectViewports } = require('../src/viewports.cjs');
 const { readBuild, matchViewports, writeBrief, publicUrl, viewportFor } = require('../src/buildread.cjs');
 const { KEY_ID, loadKeyPair, exportPublicKey, decrypt } = require('./worker-secrets.cjs');
+const { loadEntitlement, checkQuota, checkDuration } = require('../src/entitlements.cjs');
 
 // The analysis returns a full brief; narration is the part meant to be spoken.
 function narrationFrom(markdown) {
@@ -140,6 +141,7 @@ async function start() {
     const probe = await service.media.probe(within(nativeRoot, imported.file, true));
     const duration = Number(probe.format.duration);
     assert(duration > 0, 'Captured video has no measurable duration');
+    checkDuration(entitlement, duration);
 
     const estimate = Math.min(settings.cap, Math.max(0.02, Number((script.length / 1000 * 0.03).toFixed(2))));
     const speech = await providersFor(settings).speech(nativeId, {
@@ -184,6 +186,7 @@ async function start() {
     if (p.data.sourceSha256 && source === p.data.video) assert(await hash(within(nativeRoot, imported.file, true)) === p.data.sourceSha256, 'Source checksum mismatch');
     const sourcePath = within(nativeRoot, imported.file, true);
     const duration = await service.media.measureDuration(sourcePath);
+    checkDuration(entitlement, duration);
     const settings = await settingsFor(job.owner_id);
     assert(settings.openai, 'Add an OpenAI API key in Settings to draft narration');
     assert(settings.heygen, 'Add a HeyGen API key in Settings to generate narration');
@@ -361,6 +364,8 @@ async function start() {
     return () => clearInterval(timer);
   }
 
+  // Set per job: the owner's plan limits, or null when limits are off or billing is not installed.
+  let entitlement = null;
   // Set per job; the owner cancels by moving the job row to 'cancelled'.
   let signal = new AbortController().signal;
   const CANCELLED = 'Cancelled by the owner';
@@ -447,6 +452,8 @@ async function start() {
       try {
         const row = unwrap(await db.from('vistralo_projects').select('*').eq('id', job.project_id).eq('owner_id', job.owner_id).single());
         assert(!row.document.trashed, 'Project is in Trash');
+        entitlement = await loadEntitlement(db, job.owner_id);
+        checkQuota(entitlement, job);
         const p = row.document;
         native = service.store.create(p.name, job.kind === 'website' ? 'walkthrough' : 'record');
         const nativeRoot = service.store.dir(native.id);

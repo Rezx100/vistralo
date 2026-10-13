@@ -20,6 +20,18 @@ import {
 } from "./fixtures";
 import { uuid } from "./id";
 import { abortIfNeeded } from "./checksum";
+import { billingConfig } from "./billing/config";
+import {
+  grantsPlan,
+  limitReached,
+  planById,
+  planLimit,
+  type BillingInterval,
+  type BillingState,
+  type LimitKind,
+  type PlanId,
+  type SubscriptionStatus,
+} from "./billing/plans";
 
 export class ApiError extends Error {
   constructor(
@@ -138,6 +150,70 @@ interface DemoStore {
   projects: Project[];
   shares: (ShareLink & { projectId: string })[];
   settings: WorkspaceSettings;
+}
+/** The demo's pretend subscription. It lets every plan and billing state be seen without Paddle. */
+interface DemoBilling {
+  plan: PlanId;
+  status: SubscriptionStatus | "none";
+  interval: BillingInterval;
+  scheduledAction: "cancel" | "pause" | null;
+  /** Off by default so the eight sample projects never block someone trying the demo. */
+  enforce: boolean;
+  jobs: number;
+}
+const demoBilling = (store: DemoStore): DemoBilling => ({
+  plan: "free",
+  status: "none",
+  interval: "month",
+  scheduledAction: null,
+  enforce: false,
+  jobs: 0,
+  ...((store.settings.billing as Partial<DemoBilling>) || {}),
+});
+function demoBillingState(store: DemoStore): BillingState {
+  const b = demoBilling(store),
+    subscribed = b.status !== "none" && b.plan !== "free",
+    status = b.status as SubscriptionStatus,
+    plan = planById(subscribed && grantsPlan(status) ? b.plan : "free"),
+    inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString(),
+    live = subscribed && status !== "paused" && status !== "canceled";
+  return {
+    enforce: b.enforce,
+    admin: false,
+    plan: plan.id,
+    limits: {
+      maxProjects: plan.maxProjects,
+      monthlyJobs: plan.monthlyJobs,
+      maxSourceMinutes: plan.maxSourceMinutes,
+      shareDays: plan.shareDays,
+    },
+    usage: {
+      projects: store.projects.filter((p) => !p.trashed).length,
+      jobs: b.jobs,
+      periodStart: new Date().toISOString().slice(0, 8) + "01",
+    },
+    subscription: subscribed
+      ? {
+          id: "sub_demo",
+          plan: b.plan,
+          status,
+          interval: b.interval,
+          periodEnd: live ? inDays(21) : null,
+          nextBilledAt: live && !b.scheduledAction ? inDays(21) : null,
+          scheduledAction: live ? b.scheduledAction : null,
+          scheduledAt: live && b.scheduledAction ? inDays(21) : null,
+          resumeAt: null,
+          lastPayment: status === "past_due" ? "failed" : "completed",
+        }
+      : null,
+    account: { id: "demo-user", email: "" },
+  };
+}
+/** Limits only bind in the demo when the build has billing on and the preview switch is set. */
+function demoGuard(store: DemoStore, kind: LimitKind, wanted = 0) {
+  if (!billingConfig.enabled) return;
+  const state = demoBillingState(store);
+  if (limitReached(state, kind, wanted)) throw planLimit(state, kind);
 }
 const objectURLs = new Map<string, string>();
 let demoDatabase: Promise<IDBDatabase> | undefined;
@@ -307,6 +383,7 @@ class DemoAdapter implements WorkspaceAdapter {
   async create(input: CreateProjectInput): Promise<Project> {
     validateInput(input);
     return this.mutate((store) => {
+      demoGuard(store, "projects");
       const project: Project = {
         id: `demo-${uuid()}`,
         name: input.name.trim(),
@@ -396,6 +473,7 @@ class DemoAdapter implements WorkspaceAdapter {
     this.mutate((store) => {
       for (const id of ids) {
         const p = this.find(store, id);
+        if (p.trashed) demoGuard(store, "projects");
         p.trashed = false;
         delete p.trashedAt;
       }
@@ -555,6 +633,7 @@ class DemoAdapter implements WorkspaceAdapter {
         throw new Error(
           "Add a recording or visual brief before sharing this demo project.",
         );
+      demoGuard(store, "share", expiresInDays);
       const shareId = `demo-share-${uuid()}`;
       const share: ShareLink & { projectId: string } = {
         id: shareId,
@@ -611,6 +690,8 @@ class DemoAdapter implements WorkspaceAdapter {
       const p = this.find(store, id);
       if (p.trashed)
         throw new Error("Restore this project before running a simulation.");
+      demoGuard(store, "jobs");
+      store.settings.billing = { ...demoBilling(store), jobs: demoBilling(store).jobs + 1 };
       p.status = "processing";
       p.error = undefined;
       if (url) p.url = url;
@@ -746,6 +827,25 @@ class DemoAdapter implements WorkspaceAdapter {
           objectURLs.delete(String(key));
         }
       result = { reset: true, demo: true };
+    } else if (method === "billing") result = demoBillingState(readDemo());
+    else if (method === "billingSimulate" || method === "billingAction") {
+      // billingSimulate is the test checkout and the preview controls; billingAction mirrors the cloud calls.
+      result = this.mutate((store) => {
+        const b = demoBilling(store);
+        if (method === "billingSimulate") {
+          for (const key of ["plan", "status", "interval", "scheduledAction", "enforce", "jobs"] as const)
+            if (args[key] !== undefined) (b as any)[key] = args[key];
+          if (b.status === "none") Object.assign(b, { plan: "free", scheduledAction: null });
+        } else if (args.action === "resume") Object.assign(b, { status: "active", scheduledAction: null });
+        else if (args.action === "keep") b.scheduledAction = null;
+        else if (args.action === "change_plan") Object.assign(b, { plan: args.plan, interval: args.interval });
+        else
+          throw new UnsupportedOperationError(
+            "Paddle's billing page opens from a connected workspace. In the demo, use the preview controls in Settings, under Billing.",
+          );
+        store.settings.billing = b;
+        return { ok: true, demo: true };
+      });
     } else if (method === "check")
       result = {
         demo: true,

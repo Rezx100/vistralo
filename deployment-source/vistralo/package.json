@@ -13,7 +13,8 @@
     "typecheck:web": "tsc -p tsconfig.web.json",
     "lint:design": "node scripts/lint-design.cjs",
     "test:web:a11y": "node scripts/web-accessibility-test.cjs",
-    "test:web:journey": "node scripts/web-journey.cjs"
+    "test:web:journey": "node scripts/web-journey.cjs",
+    "test:web:billing": "node scripts/web-billing-journey.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.99.1",
