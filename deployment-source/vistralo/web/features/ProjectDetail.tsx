@@ -7,6 +7,7 @@ import { FilesTab } from "./project/FilesTab";
 import { JobFailure, JobProgress } from "./project/JobProgress";
 import { OverviewTab } from "./project/OverviewTab";
 import { NextStep, ProjectHeader } from "./project/ProjectHeader";
+import { ShareFirst } from "./project/ShareFirst";
 import { useProjectDetail } from "./project/useProjectDetail";
 import "./features.css";
 
@@ -16,6 +17,10 @@ interface Props {
   onBack: () => void;
   onChanged: (project?: Project) => void;
   notify: (message: string, error?: boolean) => void;
+  /** This project was saved a moment ago, so the share link is offered before anything else. */
+  fresh?: boolean;
+  onShare?: () => void;
+  onFreshDone?: () => void;
 }
 type Tab = "overview" | "editor" | "brief" | "files";
 
@@ -27,6 +32,9 @@ export function ProjectDetail({
   onBack,
   onChanged,
   notify,
+  fresh,
+  onShare,
+  onFreshDone,
 }: Props) {
   const {
     info,
@@ -154,6 +162,14 @@ export function ProjectDetail({
         back={back}
         downloadKit={downloadKit}
       />
+      {fresh && onShare && onFreshDone && !!project.video && !project.trashed && (
+        <ShareFirst
+          project={project}
+          adapter={adapter}
+          onMore={onShare}
+          onDismiss={onFreshDone}
+        />
+      )}
       {!active && !project.error && project.type === "walkthrough" && (
         <NextStep
           project={project}

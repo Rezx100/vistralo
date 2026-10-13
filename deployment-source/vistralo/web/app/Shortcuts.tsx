@@ -61,3 +61,28 @@ export function ShortcutList() {
     </dl>
   );
 }
+
+/** N opens the New project menu from any page; the letters beside its items then choose one. */
+export function useCreateShortcut(
+  mobileNavigation: boolean,
+  setMenu: Dispatch<SetStateAction<string>>,
+) {
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== "n" ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        isTyping(event.target) ||
+        document.querySelector("dialog[open]") ||
+        document.querySelector('[role="menu"]')
+      )
+        return;
+      event.preventDefault();
+      setMenu(mobileNavigation ? "create-bar" : "create");
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [mobileNavigation]);
+}

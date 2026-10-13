@@ -160,6 +160,7 @@
   --motion-dock: 220ms;
   --motion-shimmer: 1200ms;
   --motion-pulse: 1600ms;
+  --motion-leader: 320ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
   --motion-sheet-ease: cubic-bezier(0.2, 0, 0, 1);
   --motion-spring: cubic-bezier(0.2, 0, 0, 1);
@@ -305,6 +306,7 @@
     --motion-grid-delay: 0ms;
     --motion-dock: 0ms;
     --motion-sheet: 0ms;
+    --motion-leader: 0ms;
     --sheet-enter-scale: 1;
   }
 }

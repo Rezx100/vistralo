@@ -58,7 +58,6 @@ export function useLibrary({
       () => localStorage.getItem("vistralo-view") || "grid",
     ),
     [selected, setSelected] = useState<string[]>([]),
-    [createMenu, setCreateMenu] = useState(false),
     [sortMenu, setSortMenu] = useState(false),
     [filterMenu, setFilterMenu] = useState(""),
     [searchOpen, setSearchOpen] = useState(false),
@@ -203,9 +202,6 @@ export function useLibrary({
         e.preventDefault();
         setSearchOpen(true);
         requestAnimationFrame(() => searchRef.current?.focus());
-      } else if (e.key.toLowerCase() === "n" && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        setCreateMenu(true);
       } else if (e.key === "Escape") {
         setSelected([]);
       } else if (e.key === "?") onShortcuts();
@@ -217,7 +213,7 @@ export function useLibrary({
   return {
     tab, setTab, query, setQuery, type, setType, source, setSource,
     sort, setSort, order, setOrder, layout, setLayout,
-    selected, setSelected, createMenu, setCreateMenu, sortMenu, setSortMenu,
+    selected, setSelected, sortMenu, setSortMenu,
     filterMenu, setFilterMenu, searchOpen, setSearchOpen, focus, setFocus,
     page, setPage, pages, listMenu, setListMenu,
     searchRef, gridRef, scope, counts, visible, current,

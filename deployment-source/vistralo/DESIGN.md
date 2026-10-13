@@ -203,7 +203,9 @@ Archivo is not shipped yet. It is under the SIL Open Font Licence and will be se
 
 The app is a rail and a sheet. The rail is 232px, collapses to 56px of icons between 768 and 1023px, and becomes a drawer below 768px. The sheet is everything else and scrolls on its own.
 
-Each page starts with one header row: the title at the start, search in the middle where there is something to search, and the page's single primary action at the end. Record is always that action in the library and is reachable from every page.
+Each page starts with one header row: the title and a count at the start, then search across the rest where there is something to search.
+
+Record is not in that row. It sits at the top of the rail, in the same place on every page, with a button beside it that lists the other ways to start. On a phone both are in the top bar. Record goes straight to the browser's screen picker and starts whichever way of recording was used last.
 
 The library is a grid of frames. Columns are at least 280px wide and as many as fit, with 24px between columns and 32px between rows. The list view is the same frames at 64px wide with their edge print set out in columns. Filters are pill tabs under the header row, with the grid and list switch at the far end.
 
@@ -239,7 +241,7 @@ Outlines are 1px. The selection ring is 2px of pencil, set 3px outside the frame
 Plain and confident: a label, sometimes an icon before it, no gradient.
 - **Shape:** 8px corners; 40px tall for a page's primary action, 32px elsewhere, 24px minimum for icon buttons with a 32px hit area.
 - **Primary:** pencil fill, white label. One per view.
-- **Record:** tally red fill, white label, pill shape, a 10px dot before the label. It reads "Record" at rest and "Stop" while live.
+- **Record:** tally red fill, white label, pill shape, a 10px dot before the label. The tray's Stop button uses the same red with a square in place of the dot.
 - **Secondary:** surface fill, control border, ink label. **Ghost:** no fill or border until hover.
 - **Hover / Focus:** hover darkens the fill one step in 120ms. Focus is a 2px ring 2px outside the button, pencil in light and `dark-focus` in dark. Pressed darkens one more step with no movement.
 
@@ -262,14 +264,18 @@ The rail lists Projects, Shared with me and Trash, then pinned and recent projec
 ### Menus, dialogs and toasts
 Opaque surface, 12px corners, overlay shadow. Menus open from their button in 120ms and close on a second press, Escape or an outside click. Dialogs are centred up to 520px wide and become full-width bottom sheets below 768px. Toasts appear at the bottom, say what happened in one sentence, and offer at most one action.
 
-### Countdown
-Before a recording starts, a film leader counts three, two, one in the centre of the page: a large wide numeral inside a ring that sweeps once per second. With reduced motion the ring does not sweep and the numerals change in place. Escape cancels it.
+### Recording tray
+A small opaque bar at the foot of the page while a take is live, and in a floating window when the browser supports one. It never covers the library's controls.
+
+Before the first frame it counts three, two, one: a numeral in a red ring, with "Recording starts in 3" beside it and Cancel. Escape also cancels. The tab's title counts down too and its icon becomes a red dot, because a tab that is being recorded is watched from that tab, where the tray cannot be seen. With reduced motion the numeral changes in place.
+
+During a take it shows the time, then pause, start over, discard and Stop, all in view without hovering. Starting over and discarding both lose the take, so each asks once inside the tray, with the safe answer focused, while the recording carries on.
 
 ## Do's and Don'ts
 
 ### Do:
 - **Do** put every fact about a recording in edge print on or under its frame.
-- **Do** keep one primary action per view, and make Record reachable from every page.
+- **Do** keep one primary action per view, and keep Record where it is on every page.
 - **Do** pair each status with what the person can do next, in words.
 - **Do** measure a new text and ground pairing before using it.
 - **Do** check every screen in dark, German, right-to-left and forced colours; use logical properties (`inline-start`, not `left`).

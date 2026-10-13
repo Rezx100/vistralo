@@ -39,6 +39,8 @@ export function useHashRoute({
   useEffect(() => {
     const onHash = () => {
       setPath(route());
+      // A new page starts at its top, not wherever the last one was scrolled to.
+      window.scrollTo(0, 0);
       const next = getMode();
       if (next !== mode) {
         setMode(next);

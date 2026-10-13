@@ -11,7 +11,8 @@ Deno.serve(async req=>{
  if(error||!share)return unavailable();
  const {data:row}=await client.from('vistralo_projects').select('document').eq('id',share.project_id).eq('owner_id',share.owner_id).maybeSingle();
  if(!row||row.document.trashed)return unavailable();const p=row.document;
- const file=p.data?.output?.file;
+ // The finished film when there is one; until then the recording itself, so a link made the moment recording stops already plays.
+ const file=typeof p.data?.output?.file==='string'?p.data.output.file:p.video;
  let media='';
  if(typeof file==='string'&&file.startsWith(`${share.owner_id}/${share.project_id}/`)&&p.data?.files?.[file]){
   const {data}=await client.storage.from('vistralo-media').createSignedUrl(file,60);

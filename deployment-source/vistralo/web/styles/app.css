@@ -686,6 +686,11 @@ progress::-webkit-progress-value {
   pointer-events: none;
   text-align: start;
 }
+/* A button whose menu is open has said what it is. */
+.tooltip-host[aria-expanded="true"]:hover > .tooltip,
+.tooltip-host[aria-expanded="true"]:focus-visible > .tooltip {
+  display: none;
+}
 .tooltip-host:hover > .tooltip,
 .tooltip-host:focus-visible > .tooltip {
   display: block;
@@ -1445,10 +1450,9 @@ input.switch:disabled {
   }
   /* A filled control keeps its fill in high contrast, so its label needs the matching system colour:
      left alone, the browser forces the label to ButtonText on top of the highlight. */
-  .button-primary,
-  .button-record,
-  .button-danger-solid,
-  .dock-primary {
+.button-primary,
+.button-record,
+.button-danger-solid {
     forced-color-adjust: none;
     background: var(--accent);
     border-color: var(--accent);
@@ -1477,142 +1481,12 @@ input.switch:disabled {
 @keyframes navigation-pending { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 @media (prefers-reduced-motion: reduce) { .navigation-progress.is-pending span { animation: none; inline-size: 100%; }
 }
-
-/* Create bar. It stays put at the foot of the project list with its record
-   actions always showing, so nothing shifts under the pointer. */
-main:has(.create-dock) {
-  padding-block-end: var(--dock-reserve);
-}
-body:has(.create-dock) .toast {
-  inset-block-end: calc(var(--dock-offset) + var(--dock-height) + var(--space-3));
-}
 /* Center of the content area, beside the rail. Shared by the dock and the recording tray. */
 .app-shell {
   --dock-center: calc(var(--rail-width) + (100vw - var(--rail-width)) / 2);
 }
 .app-shell.rail-collapsed {
   --dock-center: calc(var(--rail-collapsed) + (100vw - var(--rail-collapsed)) / 2);
-}
-.app-shell:has(.flow-dialog.is-tray) .create-dock {
-  display: none;
-}
-.create-dock {
-  position: fixed;
-  z-index: 50;
-  inset-block-end: var(--dock-offset);
-  inset-inline-start: var(--dock-center);
-  translate: -50% 0;
-  display: flex;
-  align-items: center;
-  max-inline-size: calc(100vw - var(--space-8));
-  block-size: var(--dock-height);
-  padding: var(--space-1);
-  border: var(--border-width) solid var(--divider);
-  border-radius: var(--radius-pill);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow);
-  animation: dock-in var(--motion-dock) var(--motion-spring) both;
-}
-[dir="rtl"] .create-dock {
-  translate: 50% 0;
-}
-.create-dock-quick {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-.dock-action {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  block-size: var(--dock-item);
-  padding-inline: var(--space-3) var(--space-4);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--fg-2);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-  transition:
-    background var(--motion-standard) var(--motion-ease),
-    color var(--motion-standard) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
-}
-.dock-action:hover {
-  background: var(--hover-bg);
-  color: var(--fg-1);
-}
-.dock-action:active {
-  background: var(--pressed-bg);
-  transform: scale(0.96);
-}
-.dock-action:focus-visible {
-  outline-offset: calc(-1 * var(--focus-width));
-}
-.create-dock-divider {
-  flex-shrink: 0;
-  inline-size: var(--border-width);
-  block-size: var(--control-small);
-  margin-inline: var(--space-1) var(--space-2);
-  background: var(--divider);
-}
-.dock-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  block-size: var(--dock-item);
-  padding-inline: var(--space-4) var(--space-2);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--primary-fg);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
-  box-shadow: var(--primary-inset);
-  transition:
-    background var(--motion-standard) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
-}
-.dock-primary:hover {
-  background: var(--accent-hover);
-}
-.dock-primary:active {
-  background: var(--accent-pressed);
-  transform: scale(0.97);
-}
-.dock-primary > svg {
-  transition: rotate var(--motion-dock) var(--motion-spring);
-}
-.create-dock.is-open .dock-primary > svg {
-  rotate: 45deg;
-}
-.dock-primary kbd {
-  display: inline-grid;
-  place-items: center;
-  min-inline-size: var(--avatar-small);
-  block-size: var(--avatar-small);
-  padding-inline: var(--space-1);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--primary-fg) 20%, transparent);
-  color: var(--primary-fg);
-  font: inherit;
-  font-size: var(--font-caption);
-  line-height: var(--line-caption);
-  font-weight: var(--weight-medium);
-}
-/* The dock already blurs what is behind it, so a nested blur cannot apply; the menu is opaque instead. */
-.create-dock .menu {
-  inset-block-start: auto;
-  inset-block-end: calc(100% + var(--space-3));
-  padding: var(--space-2);
-  border-color: var(--divider);
-  border-radius: var(--radius-card);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow);
-  transform-origin: bottom right;
-  animation: dock-menu-in var(--motion-enter) var(--motion-spring) both;
 }
 @keyframes dock-in {
   from {
@@ -1631,25 +1505,75 @@ body:has(.create-dock) .toast {
   .app-shell.rail-collapsed {
     --dock-center: 50%;
   }
-  .create-dock {
-    inset-block-end: var(--space-4);
-  }
-  body:has(.create-dock) .toast {
-    inset-block-end: calc(var(--space-4) + var(--dock-height) + var(--space-3));
-  }
 }
-/* Below this width the three record actions do not fit beside the rail; the menu lists them. */
-@media (max-width: 1023px) {
-  .create-dock-quick {
+
+/* Record: the one place a project starts from, in the same spot on every page. */
+.record-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-3) var(--space-1);
+  padding-inline: var(--space-3);
+}
+.record-control .record-button {
+  flex: 1;
+  min-inline-size: 0;
+}
+.record-control .record-more {
+  inline-size: var(--control-primary);
+  block-size: var(--control-primary);
+  border-color: var(--control-border);
+  background: var(--bg-elevated);
+}
+.record-control .record-more:hover:not(:disabled) {
+  background: var(--card-hover-bg);
+}
+.record-control .tooltip {
+  inset-inline-start: 0;
+  transform: none;
+}
+.rail-collapsed .record-control {
+  flex-direction: column;
+  padding-inline: 0;
+}
+.rail-collapsed .record-button {
+  flex: none;
+  inline-size: var(--control-primary);
+  padding: 0;
+}
+.rail-collapsed .record-label {
+  display: none;
+}
+.record-control-bar {
+  margin: 0;
+  margin-inline-start: auto;
+  padding: 0;
+}
+.record-control-bar .record-button {
+  flex: none;
+  min-block-size: var(--control-size);
+}
+.record-control-bar .record-more {
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+}
+.record-control-bar .tooltip {
+  inset-inline: auto 0;
+}
+.mobile-navigation small + .record-control-bar {
+  margin-inline-start: var(--space-1);
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .record-control-rail {
+    flex-direction: column;
+    padding-inline: 0;
+  }
+  .record-control-rail .record-button {
+    flex: none;
+    inline-size: var(--control-primary);
+    padding: 0;
+  }
+  .record-control-rail .record-label {
     display: none;
-  }
-}
-@media (forced-colors: active) {
-  .create-dock,
-  .create-dock .menu {
-    border: var(--border-width) solid CanvasText;
-  }
-  .dock-primary {
-    border: var(--border-width) solid ButtonText;
   }
 }

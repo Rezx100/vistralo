@@ -10,6 +10,8 @@ import type { Billing } from "../billing/Billing";
 import { planLabel } from "../billing/plans";
 import type { Profile } from "./ProfileForm";
 import { docsUrl } from "./routing";
+import { RecordControl } from "./RecordControl";
+import type { CreateFlow } from "../features/create-flows";
 import { projectTitle } from "../utils";
 function RailRow({
   icon,
@@ -63,6 +65,8 @@ export function Rail({
   open,
   openBilling,
   onSignOut,
+  recordFlow,
+  create,
 }: {
   navigationRef: RefObject<HTMLElement | null>;
   mode: AppMode;
@@ -84,6 +88,8 @@ export function Rail({
   open: (p: Project) => void;
   openBilling: () => void;
   onSignOut: () => void;
+  recordFlow: CreateFlow;
+  create: (flow: CreateFlow) => void;
 }) {
   const visible = projects.filter((p) => !p.trashed),
     pinned = visible.filter((p) => p.pinned).slice(0, 5),
@@ -204,6 +210,13 @@ export function Rail({
           />
         )}
       </div>
+      <RecordControl
+        placement="rail"
+        flow={recordFlow}
+        create={create}
+        menuOpen={menu === "create"}
+        onMenu={(open) => setMenu(open ? "create" : "")}
+      />
       <nav className="primary-nav" aria-label="Main navigation">
         {["projects", "shared", "trash"].map((v, i) => (
           <RailRow
