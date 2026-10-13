@@ -52,7 +52,7 @@ The price IDs are entered twice (browser build and functions) and must match. `s
 
 ## Turning it on, in order
 
-1. Apply the migration `supabase/migrations/20261013150000_vistralo_billing.sql`. It adds tables, functions and three restrictive policies; with both switches off it changes nothing for existing accounts.
+1. Apply the migration `supabase/migrations/20261013103120_vistralo_billing.sql`. It adds tables, functions and three restrictive policies; with both switches off it changes nothing for existing accounts.
 2. Set the function secrets, then deploy:
    ```sh
    supabase functions deploy vistralo-paddle-webhook --no-verify-jwt
@@ -95,7 +95,7 @@ Two things to know:
 | Paddle.js loader and the mock that replaces it | `web/billing/paddle.ts`, `web/billing/config.ts` |
 | Plans page, Billing tab, upgrade prompt, status banner, test checkout | `web/billing/Billing.tsx`, `web/billing/billing.css` |
 | Limit checks before work starts, and the billing calls | `web/cloud.ts` (`guard`, `limited`, `billing`, `billingAction`) |
-| Tables, row-level security, limits, usage | `supabase/migrations/20261013150000_vistralo_billing.sql` |
+| Tables, row-level security, limits, usage | `supabase/migrations/20261013103120_vistralo_billing.sql` |
 | Webhook receiver | `supabase/functions/vistralo-paddle-webhook` |
 | Customer portal link, change plan, resume, undo a cancellation | `supabase/functions/vistralo-billing` |
 | Signature check, event mapping, Paddle API calls | `supabase/functions/_shared/paddle.ts` |

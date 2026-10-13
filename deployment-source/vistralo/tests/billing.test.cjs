@@ -114,7 +114,7 @@ test('billing actions call only the sandbox API, with the key in the header, and
 
 test('the plans the app shows are the plans the database enforces', () => {
   const {PLANS} = load('web/billing/plans.ts');
-  const sql = fs.readFileSync(path.join(root, 'supabase/migrations/20261013150000_vistralo_billing.sql'), 'utf8');
+  const sql = fs.readFileSync(path.join(root, 'supabase/migrations/20261013103120_vistralo_billing.sql'), 'utf8');
   const seeded = [...sql.matchAll(/\('(\w+)', '(\w+)', (\d+), (null|\d+), (null|\d+), (null|\d+), (\d+)\)/g)].map(row => ({id:row[1], name:row[2], rank:Number(row[3]), maxProjects:row[4] === 'null' ? null : Number(row[4]), monthlyJobs:row[5] === 'null' ? null : Number(row[5]), maxSourceMinutes:row[6] === 'null' ? null : Number(row[6]), shareDays:Number(row[7])}));
   assert.equal(seeded.length, 3);
   assert.deepEqual(JSON.parse(JSON.stringify(PLANS.map(({id, name, rank, maxProjects, monthlyJobs, maxSourceMinutes, shareDays}) => ({id, name, rank, maxProjects, monthlyJobs, maxSourceMinutes, shareDays})))), seeded);
