@@ -22,7 +22,7 @@ const ownPoster = (p:Project) => typeof p.thumbnail==='string'&&p.thumbnail.spli
 const storageEndpoint = () => {const u=new URL(VISTRALO_SUPABASE_URL);if(/^[a-z0-9]+\.supabase\.co$/.test(u.hostname))u.hostname=u.hostname.replace('.supabase.co','.storage.supabase.co');return `${u.origin}/storage/v1/upload/resumable`;};
 /** Signed in, but this account has no workspace: sign-up is closed, or access was never granted. */
 export class NoWorkspaceError extends Error {constructor(message:string){super(message);this.name='NoWorkspaceError';}}
-let completingSignup:Promise<void>|null=null;
+let completingSignup:{user:string,done:Promise<void>}|null=null;
 export async function cloudAccount() {
   const client=required();
   const {data}=await client.auth.getSession();
@@ -32,12 +32,19 @@ export async function cloudAccount() {
   let found=await read();
   // A verified self-serve sign-up has no workspace until this runs; the database refuses it while sign-up is closed.
   if(!found.error&&!found.data&&billingConfig.signup){
-    // The shell asks for the account from several places at once; they share one request.
-    completingSignup??=Promise.resolve(client.rpc('vistralo_complete_signup')).then(result=>{
-      // P0001 is the database function declining (sign-up closed, address not confirmed); anything else is a failed request.
-      if(result.error)throw result.error.code==='P0001'?new NoWorkspaceError(result.error.message):Error(result.error.message);
-    }).finally(()=>{completingSignup=null;});
-    await completingSignup;
+    // The shell asks for the account from several places at once; they share one request per user.
+    let pending=completingSignup;
+    if(pending?.user!==user.id){
+      const done=Promise.resolve(client.rpc('vistralo_complete_signup')).then(result=>{
+        // P0001 is the database function declining (sign-up closed, address not confirmed); anything else is a failed request.
+        if(result.error)throw result.error.code==='P0001'?new NoWorkspaceError(result.error.message):Error(result.error.message);
+      });
+      const entry=pending={user:user.id,done};
+      completingSignup=entry;
+      // A refusal can be lifted later (sign-up opened, address confirmed), so only a success is remembered.
+      done.catch(()=>{if(completingSignup===entry)completingSignup=null;});
+    }
+    await pending.done;
     found=await read();
   }
   const account=unwrap<{role:string,user_id:string,display_name:string,workspace_name:string}>(found);
