@@ -23,6 +23,8 @@ const out = process.env.VISTRALO_WEB_OUT || "server-ui";
     legalComments: "external",
   });
   fs.copyFileSync("web/styles/tokens.css", path.join(out, "tokens.css"));
+  // Published so the pricing page on vistralo.com can be built from the same plan table.
+  fs.copyFileSync("web/billing/plans.json", path.join(out, "plans.json"));
   fs.writeFileSync(
     path.join(out, "style.css"),
     ["web/styles/app.css", "web/styles/library.css", "web/features/features.css", "web/styles/project.css", "web/styles/states.css", "web/billing/billing.css"]

@@ -1,0 +1,40 @@
+{
+  "confirmed": false,
+  "note": "Plan names, limits and prices are placeholders the owner has not confirmed. This file is the one place they are written: the app (web/billing/plans.ts), the published /plans.json and the pricing page on vistralo.com all read it. The database seeds the same limits in the billing migration, and a test fails if the two disagree. Real prices are set in Paddle; the figures here are what the test checkout and the pricing page show.",
+  "currency": "USD",
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "rank": 0,
+      "summary": "Try Vistralo on a few short recordings.",
+      "maxProjects": 5,
+      "monthlyJobs": 3,
+      "maxSourceMinutes": 5,
+      "shareDays": 7,
+      "testPrice": { "month": 0, "year": 0 }
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "rank": 1,
+      "summary": "For regular walkthroughs and design reviews.",
+      "maxProjects": 100,
+      "monthlyJobs": 60,
+      "maxSourceMinutes": 30,
+      "shareDays": 30,
+      "testPrice": { "month": 12, "year": 120 }
+    },
+    {
+      "id": "studio",
+      "name": "Studio",
+      "rank": 2,
+      "summary": "For long recordings and heavy monthly use.",
+      "maxProjects": null,
+      "monthlyJobs": 300,
+      "maxSourceMinutes": 120,
+      "shareDays": 30,
+      "testPrice": { "month": 36, "year": 360 }
+    }
+  ]
+}

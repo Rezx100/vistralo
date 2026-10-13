@@ -8,5 +8,5 @@ if(new URL(url).protocol!=='https:')throw Error('Supabase must use HTTPS.');
 require('esbuild').buildSync({entryPoints:['server-ui/hash-worker.source.js'],bundle:true,minify:true,outfile:'server-ui/hash-worker.js'});
 execFileSync(process.execPath,['scripts/build-web.cjs'],{stdio:'inherit'});
 fs.mkdirSync('dist-web',{recursive:true});
-for(const file of ['index.html','app.js','app.js.LEGAL.txt','style.css','tokens.css','hash-worker.js'])if(fs.existsSync('server-ui/'+file))fs.copyFileSync('server-ui/'+file,'dist-web/'+file);
+for(const file of ['index.html','app.js','app.js.LEGAL.txt','style.css','tokens.css','plans.json','hash-worker.js'])if(fs.existsSync('server-ui/'+file))fs.copyFileSync('server-ui/'+file,'dist-web/'+file);
 fs.cpSync('server-ui/assets','dist-web/assets',{recursive:true});
