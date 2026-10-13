@@ -72,6 +72,7 @@ function RailRow({
   return (
     <button
       className={`rail-row tooltip-host ${active ? "active" : ""}`}
+      aria-label={label}
       aria-current={active ? "page" : undefined}
       onClick={onClick}
     >
