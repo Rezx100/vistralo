@@ -4,6 +4,32 @@
 
 The drafts here map product behavior to information a reviewer needs. Replace every `{{FIELD}}` with verified operator facts, obtain jurisdiction-appropriate legal review, then publish versioned notices and link them from the app's sign-in page and settings and from the landing footer **before** opening signups. Show material updates to existing users and retain the prior versions.
 
+## Drafts in this folder (13 October 2026)
+
+Every page the blueprint lists now has a draft. None is approved, none is published and neither site links to any of them. "Open fields" counts the `{{FIELD}}` placeholders still in the file: facts only the operator knows, decisions the operator has to make, and passages left for counsel.
+
+| Page | File | Open fields | What mainly holds it up |
+| --- | --- | --- | --- |
+| Service terms | `TERMS-DRAFT.md` | 21 | Warranties, liability and governing law are left wholly to counsel; confirmed plans; the account deletion process |
+| Privacy notice | `PRIVACY-DRAFT.md` | 22 | Hosting countries, retention periods, lawful bases, transfer safeguards |
+| Browser storage notice | `STORAGE-NOTICE-DRAFT.md` | 2 | What Paddle's checkout stores in the browser |
+| Refund policy | `REFUND-POLICY-DRAFT.md` | 14 | The refund window and renewal rule, which are the operator's decision; the consumer withdrawal right |
+| Acceptable use policy | `ACCEPTABLE-USE-DRAFT.md` | 7 | The appeal process; duties to report content |
+| Copyright and takedown policy | `COPYRIGHT-TAKEDOWN-DRAFT.md` | 12 | Which notice regimes apply, a designated agent, response times |
+| AI and voice disclosure | `AI-AND-VOICE-DRAFT.md` | 14 | The providers' current data terms, the default voice and its consent, the models used in production |
+| Data processing addendum | `DPA-DRAFT.md` | 22 | Transfer mechanism, breach notice period, audit terms, how it is accepted |
+| Subprocessors and other recipients | `SUBPROCESSORS-DRAFT.md` | 17 | Each provider's contracting entity and region; whether OpenAI and HeyGen are the customer's processors or Vistralo's |
+| Security overview | `SECURITY-OVERVIEW-DRAFT.md` | 13 | Hosting regions, encryption at rest, backups, who holds administrator access |
+| Company details and contact | `COMPANY-DETAILS-DRAFT.md` | 14 | Registered name and number, a postal contact for legal notices, representatives if required |
+
+The terms were rewritten on 13 October 2026 to match the refund policy and to name Paddle as reseller and merchant of record (section 6). Read the two together: a change to one usually needs the other changed.
+
+Three facts in these drafts are true of the code but have to be confirmed in production before anything is published:
+
+1. Narration runs on the customer's own keys only if the production worker has no `OPENAI_API_KEY` or `HEYGEN_API_KEY` in its own environment. The worker reads its environment first (`scripts/local-admin-worker.cjs`).
+2. The database rules in production match the migrations. `docs/SCHEMA-DRIFT.md` records where they are known to differ.
+3. The share page described is the one in `supabase/functions/_shared/share-page.ts`, which is live only after the `vistralo-share` function is deployed.
+
 ## Product data map (cloud app, 29 September 2026)
 
 | Operation | Data and location | Disclosure question |
