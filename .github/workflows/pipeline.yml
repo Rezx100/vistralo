@@ -46,12 +46,16 @@ jobs:
           npm run build:server
           npm test
           npm run typecheck:web
+          npm run typecheck:extension
+          npm run build:extension
+          VISTRALO_EXTENSION_TARGET=release npm run build:extension
           npm run lint:design
           npm audit --omit=dev
           npm audit
           node --check scripts/local-admin-worker.cjs
           node --check scripts/paddle-csp-probe.cjs
           node --check scripts/web-signup-journey.cjs
+          node --check scripts/extension-journey.cjs
           bash -n deploy/vps-worker-install.sh
 
   web-browser:
@@ -83,3 +87,32 @@ jobs:
           name: vistralo-web-evidence
           path: |
             deployment-source/vistralo/evidence/
+
+  extension:
+    name: Chrome extension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24.19.0
+      - name: Install browser and media tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Record with the extension in Chromium
+        run: |
+          npm run build:server
+          export VISTRALO_TEST_CHROMIUM="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          VISTRALO_EVIDENCE=evidence/extension npm run test:extension
+      - name: Save recordings and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vistralo-extension-evidence
+          path: |
+            deployment-source/vistralo/evidence/extension/
+            deployment-source/vistralo/extension-dist/*.zip

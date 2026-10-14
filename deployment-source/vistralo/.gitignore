@@ -22,3 +22,6 @@ evidence/
 
 .vercel/
 supabase/.temp/
+
+# Written by scripts/build-extension.cjs
+extension-dist/

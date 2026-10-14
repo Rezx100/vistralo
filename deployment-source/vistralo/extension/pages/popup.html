@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="extension.css"><script src="theme.js"></script><title>Vistralo</title><script defer src="popup.js"></script></head>
+<body>
+<main class="popup">
+  <header>
+    <span class="brand"><img src="icons/emblem.svg" alt=""><h1>Vistralo</h1></span>
+    <a id="app" class="link-button" href="#" target="_blank" rel="noopener">Open Vistralo</a>
+  </header>
+  <p id="failed" class="notice notice-error" role="alert" hidden><span id="failed-text"></span></p>
+  <section id="last" class="notice" hidden>
+    <p>Your last recording is ready.</p>
+    <button id="open-last" type="button" class="link-button">Open it</button>
+  </section>
+
+  <form id="setup" aria-label="New recording">
+    <fieldset class="segmented">
+      <legend>What to record</legend>
+      <label><input type="radio" name="mode" value="tab" checked>This tab</label>
+      <label><input type="radio" name="mode" value="screen">Window or screen</label>
+      <label><input type="radio" name="mode" value="camera">Camera only</label>
+    </fieldset>
+    <p id="tab-blocked" class="notice" hidden>Chrome does not let extensions record this page. Open a website, or choose Window or screen.</p>
+    <label class="field">Microphone<select id="microphone"></select></label>
+    <label class="field">Camera<select id="camera"></select></label>
+    <p id="camera-needed" class="notice" hidden>Choose a camera to record camera only.</p>
+    <label id="bubble-row" class="check"><input id="bubble" type="checkbox">Show my camera in a bubble on the page</label>
+    <label id="system-audio-row" class="check"><input id="system-audio" type="checkbox"><span id="system-audio-label">Record the tab's sound</span></label>
+    <label class="check"><input id="countdown" type="checkbox">Count down from 3 before recording</label>
+    <label class="check"><input id="open-when-done" type="checkbox">Open the recording in Vistralo when I stop</label>
+    <section id="permission" class="notice" hidden>
+      <p>Chrome needs your permission to use the microphone or camera.</p>
+      <button id="allow" type="button" class="link-button">Allow microphone and camera</button>
+    </section>
+    <p id="error" class="notice notice-error" role="alert" hidden></p>
+    <button id="start" type="submit" class="button button-record">Start recording</button>
+  </form>
+
+  <section id="session" class="session" aria-live="polite" hidden>
+    <p id="session-status">Recording</p>
+    <time id="session-clock" class="session-clock">0:00</time>
+    <div class="row">
+      <button id="pause" type="button" class="button">Pause</button>
+      <button id="stop" type="button" class="button button-record">Stop</button>
+    </div>
+    <div class="row">
+      <button id="restart" type="button" class="button">Start over</button>
+      <button id="cancel" type="button" class="button button-danger">Discard</button>
+    </div>
+    <button id="open-recorder" type="button" class="link-button">Show the recording tab</button>
+  </section>
+
+  <footer>
+    <button id="library" type="button" class="link-button">Recordings in this browser</button>
+    <button id="shortcuts" type="button" class="link-button">Keyboard shortcuts</button>
+  </footer>
+</main>
+</body></html>

@@ -45,7 +45,7 @@ These three lead the product. The recorder, library and share link around them f
 
 Confirmed:
 
-- Web app only. No browser extension and no mobile app, and the desktop app is out of scope. (brief: decided)
+- The web app and a Chrome extension (`extension/`) that records and hands recordings to the web app to save. Mobile apps and native desktop recorders are later phases in `docs/loom-parity/roadmap.md`. (owner: decided 14 October 2026 in the Chrome-first handoff, replacing "web app only")
 - Light theme first, with the dark theme kept and fully working. (brief: decided)
 - Must keep working: German, right-to-left layout, Windows high-contrast mode, reduced motion, the keyboard shortcuts (N, U, I, W, Ctrl+K, Ctrl+B, ?), demo mode, and recovery of a recording left unsaved. (brief, repo)
 - Every colour, size and spacing value lives in `web/styles/tokens.css`; `npm run lint:design` fails on raw values elsewhere. Fonts are self-hosted, and any new host the browser contacts must be added to the Content Security Policy in `vercel.json`. `'unsafe-inline'` is not allowed. (repo, brief)

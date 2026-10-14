@@ -1,0 +1,61 @@
+id,feature,platform,plan,evidence_status,evidence_ref,existing_vistralo_status,target_phase,priority,acceptance_test,implementation_status,verification_status,notes
+CX-001,First-run setup page (permissions and pinning),chrome-ext,unknown,inferred,L1,none,C0-C1,P1,welcome.html renders and asks for mic and camera,implemented,tested-with-mocks,Opens on install; also linked from the popup when a device is not allowed
+CX-002,Toolbar popup to choose and start,chrome-ext,unknown,documented (summary),L1;L2,none,C1,P0,popup renders; Start sends a valid request,implemented,tested-with-mocks,Popup closing does not affect the recording
+CX-003,Sign in and out inside the extension,chrome-ext,unknown,unknown,,web app sign-in,C4,P2,n/a,deferred,not-run,By design the extension holds no account token; the signed-in web app saves and uploads
+CX-004,Expired session when saving,chrome-ext+web,unknown,unknown,,web app sign-in screen,C4,P1,import route waits for sign-in then imports,implemented,not-run,#import/<id> runs once the app is signed in; not exercised against cloud
+CX-005,Microphone and camera permission requests,chrome-ext,unknown,documented (summary),L3,web app asks per site,C1,P0,denied permission gives a clear message and no stuck session,implemented,tested-with-mocks,Real prompts and denial not tested
+CX-010,Record the current tab,chrome-ext,unknown,documented (summary),L2;C1,web app (tab via picker),C1,P0,playable file with video and tab sound,implemented,tested-with-real-capture,Chrome for Testing 155; tab sound verified in a visible browser only
+CX-011,Record a window or the whole screen,chrome-ext,unknown,documented (summary),L2;C1,web app,C1,P0,playable file from the chosen source,implemented,tested-with-mocks,Chooser auto-picked by a test switch; real chooser and system audio not verified
+CX-012,Screen with camera bubble,chrome-ext,unknown,documented (summary),L2;L3,none,C1,P0,bubble frame on the page and in the captured pixels,implemented,tested-with-mocks,Only on pages Vistralo may draw on; not on chrome:// pages or other applications (same limit Loom documents)
+CX-013,Camera only,chrome-ext,unknown,documented (summary),L2,none,C1,P1,playable file with camera and microphone,implemented,tested-with-mocks,Fake camera and microphone
+CX-014,Switch screen-only and screen-with-camera while recording,chrome-ext,unknown,documented (summary),L2,none,C6,P3,toggle bubble mid-take,not-implemented,not-run,
+CX-015,Bubble sizes,chrome-ext,unknown,documented (summary),L3,none,C2,P2,three sizes persisted,not-implemented,not-run,
+CX-016,Move the bubble,chrome-ext,unknown,inferred,,none,C1,P2,drag keeps it inside the window,implemented,not-run,
+CX-020,Choose microphone,chrome-ext,unknown,inferred,,web app (default mic only),C1,P0,chosen device used,implemented,tested-with-mocks,
+CX-021,Choose camera,chrome-ext,unknown,inferred,,none,C1,P1,chosen device used,implemented,tested-with-mocks,
+CX-022,Microphone level meter,chrome-ext,unknown,inferred,,web app tray meter,C2,P2,meter moves with voice,not-implemented,not-run,
+CX-023,Mute the microphone mid-take,chrome-ext,unknown,unknown,,none,C2,P3,muted section is silent,not-implemented,not-run,
+CX-024,Missing or unplugged device,chrome-ext,unknown,inferred,,web app message,C1-C2,P1,clear message; recording continues without voice,implemented,not-run,
+CX-030,Count-in before recording,chrome-ext,unknown,documented (summary),L6,web app,C1,P1,3 seconds shown on the page; Esc cancels,implemented,tested-with-real-capture,
+CX-031,Remember last choices,chrome-ext,unknown,inferred,,web app (last flow),C1,P2,choices restored on reopen,implemented,tested-with-mocks,
+CX-032,Keyboard shortcuts,chrome-ext,unknown,documented (summary),L5,web app shortcuts,C1,P2,start/stop; pause/resume; discard,implemented,not-run,Alt+Shift+V and Alt+Shift+K by default; editable in Chrome. Browser commands cannot be pressed by Playwright
+CX-040,Pause and resume,chrome-ext,unknown,documented (summary),L6,web app,C1,P0,clock holds while paused; file has no paused time,implemented,tested-with-real-capture,
+CX-041,Stop,chrome-ext,unknown,documented (summary),L6,web app,C1,P0,second stop changes nothing; file ready,implemented,tested-with-real-capture,Ends the take even if Chrome never reports the recorder stopped
+CX-042,Start over,chrome-ext,unknown,documented (summary),L6,web app,C1,P1,new take at zero; first take deleted,implemented,tested-with-real-capture,
+CX-043,Discard,chrome-ext,unknown,documented (summary),L6,web app,C1,P1,nothing kept,implemented,tested-with-real-capture,
+CX-044,Hide the controls,chrome-ext,unknown,documented (summary),L6,none,C1,P2,controls hidden; reveal dot remains,implemented,not-run,The page controls are part of a tab recording's pixels; hiding removes them
+CX-045,Recording continues across navigation,chrome-ext,unknown,inferred,C1,web app tab share,C1,P0,recording still running after navigating,implemented,tested-with-real-capture,Controls are drawn again only where Vistralo has access to the new page
+CX-046,Recorded tab closed,chrome-ext,unknown,inferred,,web app,C1,P0,take ends and is kept,implemented,tested-with-real-capture,
+CX-047,Chrome's Stop sharing,chrome-ext,unknown,inferred,,web app,C1,P0,take ends and is kept,implemented,not-run,Same path as a closed tab
+CX-048,Device removed mid-take,chrome-ext,unknown,inferred,,web app,C2,P2,message; take continues,implemented,not-run,
+CX-049,Sleep and wake; offline,chrome-ext,unknown,unknown,,none,C2,P2,take survives or ends cleanly,not-implemented,not-run,Not designed yet
+CX-050,Drawing on screen,chrome-ext,unknown,documented (summary),L6,none,C6,P3,drawings appear in the recording,not-implemented,not-run,
+CX-051,Click highlighting,chrome-ext,unknown,unknown,,none,C6,P3,clicks shown in the recording,not-implemented,not-run,
+CX-060,Screenshot of an area,chrome-ext,unknown,documented (summary),L4,none,C3,P1,area image saved at device pixels,not-implemented,not-run,
+CX-061,Screenshot of the visible tab or screen,chrome-ext,unknown,documented (summary),L4,none,C3,P1,image saved,not-implemented,not-run,"Loom: no scrolling capture. A full-page capture would be Vistralo's own feature, separate from this row"
+CX-062,Annotate a screenshot (text; arrow; rectangle),chrome-ext,unknown,documented (summary),L4,none,C3,P1,export matches preview,not-implemented,not-run,
+CX-063,Blur part of a screenshot,chrome-ext,unknown,documented (summary),L4,none,C3,P1,exported pixels are blurred; original stays private,not-implemented,not-run,
+CX-064,Crop a screenshot,chrome-ext,unknown,documented (summary),L4,none,C3,P2,crop bounds exact at any zoom,not-implemented,not-run,Loom: crop is final and fixes annotations
+CX-065,Link copied after a screenshot,chrome-ext+web,unknown,documented (summary),L4,share links (expiring),C4,P2,link opens the saved image for allowed viewers,not-implemented,not-run,
+CX-070,Play and download locally,chrome-ext,unknown,inferred,,web app,C1,P0,file plays; download offered,implemented,tested-with-real-capture,
+CX-071,Save to Vistralo (hand-over to the app's save flow),chrome-ext+web,unknown,inferred,,web app save and recovery,C1,P0,app shows the recording staged; extension deletes its copy only after,implemented,tested-with-real-capture,Demo mode tested; cloud upload path is the app's existing one
+CX-072,Upload progress and retry,web,unknown,inferred,,web app (resumable TUS),C4,P1,progress; resume after a failed part,implemented-elsewhere,not-run,Unchanged web app code
+CX-073,Upload while recording,chrome-ext+web,unknown,inferred,,none,C4,P2,uploaded parts match the local file,not-implemented,not-run,
+CX-074,Share link offered after stop,web,unknown,inferred,,web app offers share after save,C4,P1,link works for allowed viewers,implemented-elsewhere,not-run,
+CX-080,Recover an interrupted take,chrome-ext,unknown,inferred,,web app recovery store,C1-C2,P0,take plays up to its last saved second,implemented,not-run,Needs a browser-kill test
+CX-081,Storage full,chrome-ext,unknown,inferred,,web app 1 GB limit,C2,P1,take stops and what was saved is kept,implemented,not-run,
+CX-082,30-minute recording,chrome-ext,unknown,inferred,,none,C2,P1,plays and seeks; A/V sync measured at start and end,not-implemented,not-run,Not run: needs a long real session
+CX-090,Website walkthrough events,chrome-ext,n/a (Vistralo),n/a,,none,C5,P1,events line up with the video,not-implemented,not-run,Vistralo's own feature
+CX-091,Review and redact walkthrough steps,web,n/a (Vistralo),n/a,,none,C5,P1,removed steps stay removed downstream,not-implemented,not-run,Vistralo's own feature
+SH-001,Transcript and captions,web,unknown,unknown,,captions from narration only,6,P2,,not-implemented,not-run,
+SH-002,AI title and summary,web,unknown,unknown,,narration script,6,P2,,not-implemented,not-run,
+SH-003,Chapters,web,unknown,unknown,,screens in the script,6,P3,,not-implemented,not-run,
+SH-004,Comments and reactions,web,unknown,unknown,,none,6,P3,,not-implemented,not-run,
+SH-005,View counts,web,unknown,unknown,,none,6,P3,,not-implemented,not-run,
+SH-006,Workspaces and roles,web,unknown,unknown,,single owner,6,P3,,not-implemented,not-run,
+SH-007,Text-based editing,web,unknown,unknown,,trim editor,6,P3,,not-implemented,not-run,
+SH-008,Integrations and embeds,web,unknown,unknown,,none,6,P3,,not-implemented,not-run,
+DW-001,Windows desktop recorder,windows,unknown,unknown,L7,not audited,2,P2,,not-implemented,not-run,
+DM-001,macOS recorder,macos,unknown,unknown,L7,none,3,P2,,not-implemented,not-run,
+MI-001,iOS recorder,ios,unknown,unknown,L7,none,4,P3,,not-implemented,not-run,
+MA-001,Android recorder,android,unknown,unknown,L7,none,5,P3,,not-implemented,not-run,

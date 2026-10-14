@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="extension.css"><script src="theme.js"></script><title>Set up Vistralo</title><script defer src="welcome.js"></script></head>
+<body>
+<main class="welcome">
+  <span class="brand"><img src="icons/emblem.svg" alt=""><h1>Set up Vistralo</h1></span>
+  <p>Vistralo records a tab, a window, your screen or your camera, then turns the recording into a narrated walkthrough in the Vistralo app.</p>
+  <section aria-labelledby="devices-title">
+    <h2 id="devices-title">Microphone and camera</h2>
+    <p class="muted">Chrome asks once. Vistralo uses them only while you record, and only the ones you choose.</p>
+    <dl>
+      <dt>Microphone</dt><dd id="mic-state">Not asked yet</dd><dd><button id="allow-mic" type="button" class="button">Allow microphone</button></dd>
+      <dt>Camera</dt><dd id="cam-state">Not asked yet</dd><dd><button id="allow-cam" type="button" class="button">Allow camera</button></dd>
+    </dl>
+    <p id="found" class="muted"></p>
+    <p id="blocked" class="notice" hidden>Something is blocked. Click the icon at the left of the address bar, allow it, then press the button again.</p>
+  </section>
+  <section aria-labelledby="pin-title">
+    <h2 id="pin-title">Keep Vistralo at hand</h2>
+    <p>Pin Vistralo from Chrome's extensions menu (the puzzle piece) so the record button is always in the toolbar. Alt+Shift+V starts and stops a recording; change it on Chrome's keyboard shortcuts page.</p>
+  </section>
+  <p id="done" class="notice" hidden>You are ready. Click Vistralo in the toolbar to record.</p>
+</main>
+</body></html>

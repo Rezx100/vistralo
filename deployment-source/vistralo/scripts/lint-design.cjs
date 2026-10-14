@@ -36,7 +36,8 @@ function checkDeclaration(file, source, index, property, value) {
   if (prop === 'transition' && /(?:^|\s|,)all(?:\s|,|$)/.test(val)) report(file, source, index, 'transition: name animated properties; transition: all is not allowed');
 }
 
-const files = walk(path.join(root, 'web')).filter(file => /\.(css|tsx|jsx)$/.test(file));
+// The Chrome extension's stylesheets follow the same rule; it ships a copy of tokens.css.
+const files = [...walk(path.join(root, 'web')), ...walk(path.join(root, 'extension', 'styles'))].filter(file => /\.(css|tsx|jsx)$/.test(file));
 if (!fs.existsSync(tokenFile)) errors.push('web/styles/tokens.css: central token file is missing');
 for (const file of files) {
   if (file === tokenFile) continue;

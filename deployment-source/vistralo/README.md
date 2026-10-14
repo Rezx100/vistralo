@@ -12,6 +12,10 @@ Record a flow, upload a video or screenshots, or point at a website. Vistralo fi
 
 `build:cloud` needs `VISTRALO_SUPABASE_URL` and `VISTRALO_SUPABASE_PUBLISHABLE_KEY` (set in Vercel; only a publishable key may be embedded).
 
+## Chrome extension
+
+`extension/` records a tab, window, screen or camera and hands the recording to the web app's save flow. Build, load and test instructions: [extension/README.md](extension/README.md). Design, research and status: [docs/loom-parity](docs/loom-parity/progress.md).
+
 ## Develop
 
 Use Node 24.

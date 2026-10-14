@@ -1,0 +1,120 @@
+/* Controls drawn on the recorded page, inside a closed shadow root. tokens.css is prepended at build. */
+:host {
+  all: initial;
+}
+[hidden] {
+  display: none !important;
+}
+.bar,
+.reveal,
+.count,
+.bubble {
+  position: fixed;
+  z-index: 2147483647;
+  font-family: var(--font-family);
+}
+.bar {
+  left: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--tray-height);
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--rebate);
+  color: var(--overlay-fg);
+  box-shadow: var(--shadow-menu, none);
+}
+.dot {
+  width: var(--record-dot);
+  height: var(--record-dot);
+  margin: var(--space-0) var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--record);
+}
+.is-paused .dot {
+  background: var(--edge-print-dim);
+}
+.clock {
+  min-width: var(--sheet-number-width);
+  font-family: var(--font-mono);
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+}
+button {
+  min-width: var(--control-size);
+  height: var(--control-size);
+  padding: var(--space-0) var(--space-2);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-label);
+  cursor: pointer;
+}
+button:hover {
+  background: var(--overlay);
+}
+button:focus-visible {
+  outline: var(--focus-width) solid var(--overlay-fg);
+  outline-offset: var(--focus-offset);
+}
+.stop {
+  background: var(--record);
+  font-weight: var(--weight-semibold);
+}
+.stop:hover {
+  background: var(--record-hover);
+}
+.reveal {
+  left: var(--space-4);
+  bottom: var(--space-4);
+  background: var(--rebate);
+  color: var(--record);
+}
+.count {
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-2);
+  background: var(--overlay);
+  color: var(--overlay-fg);
+  pointer-events: none;
+}
+.count span {
+  font-family: var(--font-display);
+  font-size: var(--font-pitch);
+  line-height: var(--line-pitch);
+  font-weight: var(--weight-bold);
+}
+.count p {
+  margin: var(--space-0);
+  font-size: var(--font-body);
+}
+.bubble {
+  left: var(--space-4);
+  bottom: var(--dock-reserve);
+  width: var(--detail-sidebar-width);
+  height: var(--detail-sidebar-width);
+  overflow: hidden;
+  border: var(--frame-edge) solid var(--overlay-fg);
+  border-radius: var(--radius-pill);
+  background: var(--media-letterbox);
+  cursor: grab;
+  touch-action: none;
+}
+.bubble iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none;
+    animation: none;
+  }
+}
