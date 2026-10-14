@@ -57,7 +57,7 @@ OpenAI and HeyGen bill you directly. The cost limit in Settings is checked again
 
 ## Telling viewers
 
-A narrated walkthrough is spoken by a synthetic voice. The page a share link opens says "Narrated by an AI voice." under a narrated film (`supabase/functions/_shared/share-page.ts`); a video file you download carries no such label. If you publish one where the law or a platform's rules require AI-generated audio to be labelled, labelling it is your responsibility. `{{COUNSEL: TRANSPARENCY DUTIES, FOR EXAMPLE UNDER THE EU AI ACT}}`
+A narrated walkthrough is spoken by a synthetic voice. The page a share link opens says "Narrated by an AI voice." under a narrated film (`web/share/watch.ts`); a video file you download carries no such label. If you publish one where the law or a platform's rules require AI-generated audio to be labelled, labelling it is your responsibility. `{{COUNSEL: TRANSPARENCY DUTIES, FOR EXAMPLE UNDER THE EU AI ACT}}`
 
 ## Facts to check before publishing
 

@@ -76,42 +76,72 @@ const { serve } = require('./static-server.cjs');
       assert.deepEqual(errors,[]);
       await context.close();
     }
-    // The public share page, built by the vistralo-share function. It is checked twice: once
-    // without its policy so axe can be loaded into it, and once under its real policy to prove
-    // the hashed stylesheet applies and a script cannot run.
-    const {buildSync} = require('esbuild');
-    const shareModule = {exports:{}};
-    require('node:vm').runInNewContext(buildSync({entryPoints:['supabase/functions/_shared/share-page.ts'],bundle:true,write:false,platform:'browser',format:'cjs'}).outputFiles[0].text,
-      {module:shareModule,exports:shareModule.exports,crypto:require('node:crypto').webcrypto,TextEncoder,btoa,Date,Intl});
-    const share = shareModule.exports;
-    const shareHeaders = share.shareHeaders(await share.styleHash());
+    // The page a share link opens: /watch#<token>, served with the app's own headers. The
+    // vistralo-share function's JSON answer is mocked at the address the page asks.
     const brief = fs.readFileSync('server-ui/assets/sample-brief.md','utf8');
-    const sharePages = {
-      walkthrough:share.sharePage({name:'Checkout flow accessibility audit for the spring campaign',type:'walkthrough',mediaUrl:origin+'/assets/sample-walkthrough.mp4',narrated:true,expiresAt:'2026-10-20T09:00:00Z'}),
-      brief:share.sharePage({name:'Storefront design review',type:'brief',brief,expiresAt:'2026-10-20T09:00:00Z'}),
-      unavailable:share.unavailablePage(),
+    const TOKEN = 'ab'.repeat(32);
+    const film = {mediaUrl:origin+'/assets/sample-walkthrough.mp4',expiresAt:'2026-10-20T09:00:00Z'};
+    const answers = {
+      walkthrough:[200,{name:'Checkout flow accessibility audit for the spring campaign',type:'walkthrough',...film,narrated:true,working:false},'Narrated by an AI voice.'],
+      working:[200,{name:'Onboarding take',type:'walkthrough',...film,narrated:false,working:true},'A narrated version is being prepared and will replace it at this address.'],
+      brief:[200,{name:'Storefront design review',type:'brief',brief,expiresAt:'2026-10-20T09:00:00Z'},'Storefront design review'],
+      unavailable:[404,{unavailable:true},'It has expired, or the person who made it has switched it off.'],
     };
-    for(const [name,width,height,scheme] of [['share-light',1280,900,'light'],['share-dark',1280,900,'dark'],['share-mobile',390,844,'light']]) {
+    const isShareCall = url => url.pathname.endsWith('/functions/v1/vistralo-share');
+    for(const [name,width,height,scheme] of [['watch-light',1280,900,'light'],['watch-dark',1280,900,'dark'],['watch-mobile',390,844,'light']]) {
       const context = await browser.newContext({viewport:{width,height},colorScheme:scheme,reducedMotion:'reduce'});
       const page = await context.newPage();
-      const blocked = [];
-      page.on('console',message=>{if(/Content Security Policy/i.test(message.text()))blocked.push(message.text());});
-      for(const [kind,html] of Object.entries(sharePages)) {
-        await page.setContent(html);
+      const problems = [];
+      page.on('console',message=>{if(message.type()==='error'||/Content Security Policy/i.test(message.text()))problems.push(message.text());});
+      page.on('pageerror',error=>problems.push(error.message));
+      for(const [kind,[status,body,text]] of Object.entries(answers)) {
+        let asked;
+        await page.route(isShareCall,route=>{asked=new URL(route.request().url());return route.fulfill({status,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'},body:JSON.stringify(body)});});
+        await page.goto('about:blank');
+        const response = await page.goto(origin+'/watch#'+TOKEN);
+        await page.getByText(text).first().waitFor();
+        assert.equal(asked.searchParams.get('t'),TOKEN,name+' '+kind+' asks for this token');
+        assert.equal(asked.searchParams.get('format'),'json');
+        // The page is the share page and not the app, kept out of search, and sends no referrer.
+        assert.equal(response.headers()['x-robots-tag'],'noindex, nofollow');
+        assert.equal(response.headers()['referrer-policy'],'no-referrer');
+        assert.equal(response.headers()['content-security-policy'].includes("'unsafe-inline'"),false);
+        assert.equal(await page.locator('#root').count(),0,'the React app is not loaded for a viewer');
+        assert.equal(await page.evaluate(() => document.documentElement.dataset.theme),scheme,name+' follows the device theme');
         await page.evaluate(require('axe-core').source);
         const violations = await page.evaluate(async () => (await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})));
         assert.deepEqual(violations,[],name+' '+kind);
         assert.equal(await page.locator('h1').count(),1,name+' '+kind+' has one H1');
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),name+' '+kind+' must not overflow horizontally');
+        if(kind==='walkthrough') {
+          assert.equal(await page.title(),'Checkout flow accessibility audit for the spring campaign · Vistralo');
+          await page.locator('video[aria-label="Checkout flow accessibility audit for the spring campaign"]').waitFor();
+          assert.equal(await page.getByRole('link',{name:'Download the video',exact:true}).getAttribute('href'),film.mediaUrl);
+          await page.screenshot({path:path.join(output,name+'.png'),fullPage:true});
+        }
+        if(kind==='brief') {
+          // The brief arrives as Markdown and is drawn as headings under the page's own H1.
+          assert.ok(await page.locator('.watch-brief h2').count()>0);
+          assert.equal(await page.locator('.watch-brief script').count(),0);
+        }
+        await page.unroute(isShareCall);
       }
-      // Under the function's own headers: the stylesheet applies, and nothing else does.
-      await page.route(origin+'/share-check',route=>route.fulfill({status:200,headers:{...shareHeaders,'Content-Security-Policy':shareHeaders['Content-Security-Policy'].replace('https://*.supabase.co',origin)},body:sharePages.walkthrough}));
-      await page.goto(origin+'/share-check');
-      assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor),scheme==='dark'?'rgb(11, 13, 18)':'rgb(244, 245, 247)',name+' is styled under its own policy');
-      assert.deepEqual(blocked,[],name+' loads nothing its policy refuses');
-      await page.addScriptTag({content:'window.__ran = true'}).catch(()=>{});
-      assert.equal(await page.evaluate(() => window.__ran),undefined,name+' refuses an injected script');
-      await page.screenshot({path:path.join(output,name+'.png'),fullPage:true});
+      // A link with no token, or a malformed one, says so without asking anything.
+      let calls = 0;
+      await page.route(isShareCall,route=>{calls++;return route.abort();});
+      for(const hash of ['','#not-a-token']) {
+        await page.goto('about:blank');
+        await page.goto(origin+'/watch'+hash);
+        await page.getByRole('heading',{name:'This link is unavailable',level:1}).waitFor();
+      }
+      assert.equal(calls,0);
+      // A failed request is told apart from an expired link.
+      await page.goto('about:blank');
+      await page.goto(origin+'/watch#'+TOKEN);
+      await page.getByRole('heading',{name:'This link could not be opened',level:1}).waitFor();
+      await page.getByText('Check your connection and reload the page.').waitFor();
+      await page.unroute(isShareCall);
+      assert.deepEqual(problems.filter(text=>!/Failed to load resource|net::ERR_FAILED/.test(text)),[],name+' has no console errors or refused resources');
       evidence.push({name,violations:[]});
       await context.close();
     }

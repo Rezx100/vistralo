@@ -1,45 +1,67 @@
 'use strict';
-// The public share page is built by supabase/functions/_shared/share-page.ts. These tests run
-// that module in Node; the function's entry file, which needs Deno and the database, is not run.
+// What a share link shows is worked out by supabase/functions/_shared/share-page.ts, which the
+// vistralo-share function and the app's /watch page both use. These tests run that module in Node;
+// the function's entry file, which needs Deno and the database, is not run.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const crypto = require('node:crypto');
 const {buildSync} = require('esbuild');
 
 const code = buildSync({entryPoints:[path.join(__dirname, '../supabase/functions/_shared/share-page.ts')], bundle:true, write:false, platform:'browser', format:'cjs'}).outputFiles[0].text;
 const module_ = {exports:{}};
-vm.runInNewContext(code, {module:module_, exports:module_.exports, crypto:crypto.webcrypto, TextEncoder, btoa, Date, Intl});
-const {sharePage, unavailablePage, briefToHtml, styleHash, shareHeaders, shareContent, SHARE_STYLE, escapeHtml} = module_.exports;
+vm.runInNewContext(code, {module:module_, exports:module_.exports});
+const {briefToHtml, shareContent, shareJson, shareJsonHeaders, watchUrl, SHARE_TOKEN, escapeHtml} = module_.exports;
 const plain = value => JSON.parse(JSON.stringify(value));
 
 const OWNER = '7f1c2d1e-58a4-4c5b-9a57-3f6f0a4f2b11', PROJECT = '0b0f6f8e-1c2d-4e3f-8a9b-1c2d3e4f5a6b';
 const inFolder = name => `${OWNER}/${PROJECT}/${name}`;
+const TOKEN = 'ab'.repeat(32);
 
-test('the page allows one stylesheet by its hash and nothing inline, scripted or framed', async () => {
-  const hash = await styleHash();
-  assert.equal(hash, `'sha256-${crypto.createHash('sha256').update(SHARE_STYLE).digest('base64')}'`);
-  const policy = shareHeaders(hash)['Content-Security-Policy'];
-  assert.equal(policy.includes('unsafe-inline'), false);
-  assert.equal(policy.includes('script-src'), false, "default-src 'none' already forbids scripts");
-  assert.match(policy, /^default-src 'none'; style-src 'sha256-[A-Za-z0-9+/]+=*'; media-src https:\/\/\*\.supabase\.co; base-uri 'none'; frame-ancestors 'none'; form-action 'none'$/);
-  const html = sharePage({name:'Checkout', type:'walkthrough', mediaUrl:'https://x.supabase.co/v.mp4?token=a'});
-  // Exactly the hashed stylesheet is in the page, and no style attributes or scripts.
-  assert.equal(html.match(/<style>([\s\S]*?)<\/style>/)[1], SHARE_STYLE);
-  assert.equal(/<script|\son[a-z]+=|\sstyle=/i.test(html), false);
-  assert.equal(shareHeaders(hash)['X-Robots-Tag'], 'noindex, nofollow');
-  assert.equal(shareHeaders(hash)['Cache-Control'], 'no-store');
+test('a link opens the app\'s /watch page, with the token where no server sees it', () => {
+  assert.equal(watchUrl('https://app.vistralo.com', TOKEN), `https://app.vistralo.com/watch#${TOKEN}`);
+  assert.equal(watchUrl('https://app.vistralo.com/', TOKEN), `https://app.vistralo.com/watch#${TOKEN}`);
+  assert.ok(SHARE_TOKEN.test(TOKEN));
+  for (const bad of ['', 'AB'.repeat(32), 'ab'.repeat(31), 'ab'.repeat(32) + 'a', 'zz'.repeat(32)]) assert.equal(SHARE_TOKEN.test(bad), false, bad);
+  // The app makes its links the same way.
+  assert.match(fs.readFileSync(path.join(__dirname, '../web/cloud.ts'), 'utf8'), /url:`\$\{location\.origin\}\/watch#\$\{token\}`/);
 });
 
-test('a project name and a brief cannot inject markup', () => {
-  const html = sharePage({name:'<img src=x onerror=alert(1)>"&', type:'brief', brief:'# Title <script>alert(1)</script>\n\n<b>bold</b> and [a link](javascript:alert(1)) and [ok](https://example.com/a?b=1&c="2")'});
+test('the function answers in JSON that any page may read and nothing may cache or index', () => {
+  assert.equal(shareJsonHeaders['Content-Type'], 'application/json; charset=utf-8');
+  assert.equal(shareJsonHeaders['Access-Control-Allow-Origin'], '*');
+  assert.equal(shareJsonHeaders['Cache-Control'], 'no-store');
+  assert.equal(shareJsonHeaders['X-Robots-Tag'], 'noindex, nofollow');
+  assert.equal(shareJsonHeaders['Referrer-Policy'], 'no-referrer');
+  // A browser opening an old supabase.co address is sent on to /watch, because the gateway will not serve HTML there.
+  const fn = fs.readFileSync(path.join(__dirname, '../supabase/functions/vistralo-share/index.ts'), 'utf8');
+  assert.match(fn, /status: 302/);
+  assert.match(fn, /searchParams\.get\("format"\) !== "json"/);
+  assert.equal(/text\/html/.test(fn), false, 'the function no longer returns a page');
+});
+
+test('the JSON carries what the page needs and nothing else', () => {
+  const film = inFolder('job/out.mp4'), take = inFolder('take.webm');
+  const files = {[film]:{size:1}, [take]:{size:1}};
+  const ready = shareContent({name:'Onboarding', type:'walkthrough', status:'ready', video:take, data:{output:{file:film}, narratedVideo:film, files}}, OWNER, PROJECT);
+  assert.deepEqual(plain(shareJson(ready, 'https://x.supabase.co/v.mp4', '2026-10-20T09:00:00Z')),
+    {name:'Onboarding', type:'walkthrough', mediaUrl:'https://x.supabase.co/v.mp4', narrated:true, working:false, expiresAt:'2026-10-20T09:00:00Z'});
+  // The storage path is never sent: only the signed address made for this request.
+  assert.equal(JSON.stringify(shareJson(ready, 'https://x', 'z')).includes(OWNER), false);
+  const brief = shareContent({name:'Brief', type:'brief', data:{brief:'# Hi'}}, OWNER, PROJECT);
+  assert.deepEqual(plain(shareJson(brief, undefined, 'z')), {name:'Brief', type:'brief', brief:'# Hi', expiresAt:'z'});
+  const huge = shareContent({name:'Big', type:'brief', data:{brief:'x'.repeat(2 * 1024 * 1024)}}, OWNER, PROJECT);
+  assert.equal(shareJson(huge, undefined, 'z').brief.length, 1024 * 1024);
+});
+
+test('a brief cannot inject markup', () => {
+  const html = briefToHtml('# Title <script>alert(1)</script>\n\n<b>bold</b> and [a link](javascript:alert(1)) and [ok](https://example.com/a?b=1&c="2")\n\n<img src=x onerror=alert(1)>');
   assert.equal(html.includes('<script'), false);
   assert.equal(html.includes('<img'), false);
   assert.equal(html.includes('<b>'), false);
   assert.equal(html.includes('href="javascript:'), false);
   assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
-  assert.ok(html.includes('<title>&lt;img src=x onerror=alert(1)&gt;&quot;&amp; · Vistralo</title>'));
   assert.ok(html.includes('<a href="https://example.com/a?b=1&amp;c=&quot;2&quot;" rel="noopener noreferrer nofollow">ok</a>'));
   assert.equal(escapeHtml(`<>&"'`), '&lt;&gt;&amp;&quot;&#39;');
 });
@@ -54,25 +76,6 @@ test('a brief is rendered as headings, paragraphs, lists and code, one level bel
     '<ol>', '<li>First</li>', '<li>Second</li>', '</ol>',
     '<pre>const a = &quot;&lt;b&gt;&quot;;</pre>',
   ].join('\n'));
-});
-
-test('the page says what the viewer is watching: an AI voice, or a recording still being narrated', () => {
-  const base = {name:'Onboarding', type:'walkthrough', mediaUrl:'https://x.supabase.co/v.mp4', expiresAt:'2026-10-20T09:00:00Z'};
-  const narrated = sharePage({...base, narrated:true});
-  assert.ok(narrated.includes('Narrated by an AI voice.'));
-  assert.ok(narrated.includes('Walkthrough · Link works until 20 October 2026'));
-  assert.ok(narrated.includes('<video controls playsinline preload="metadata" src="https://x.supabase.co/v.mp4" aria-label="Onboarding">'));
-  const working = sharePage({...base, working:true});
-  assert.ok(working.includes('A narrated version is being prepared and will replace it at this address.'));
-  assert.equal(working.includes('Narrated by an AI voice.'), false);
-  const plainTake = sharePage(base);
-  assert.equal(/Narrated by|being prepared/.test(plainTake), false);
-  assert.equal((plainTake.match(/<h1>/g) || []).length, 1);
-  assert.match(plainTake, /^<!doctype html>\n<html lang="en">/);
-  assert.ok(plainTake.includes('<meta name="viewport" content="width=device-width,initial-scale=1">'));
-  const gone = unavailablePage();
-  assert.ok(gone.includes('<h1>This link is unavailable</h1>'));
-  assert.equal(gone.includes('<video'), false);
 });
 
 test('a link shows the finished film, or the recording until the film exists, and only from the owner\'s own folder', () => {
