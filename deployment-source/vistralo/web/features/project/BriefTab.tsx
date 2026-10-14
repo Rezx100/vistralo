@@ -1,32 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { Project, WorkspaceAdapter } from "../../contracts";
+import { Button } from "../../components/Controls";
+import { BriefContents, BriefDocument, parseBrief } from "./BriefMarkdown";
 import { ScriptEditor } from "./ScriptEditor";
 import type { ProjectAction } from "./useProjectDetail";
 
-function MarkdownPreview({ text }: { text: string }) {
-  // Text is rendered as React nodes, never as untrusted HTML or executable links.
-  return (
-    <div className="flow-markdown">
-      {text.split("\n").map((line, index) => {
-        if (/^#{1,2} /.test(line))
-          return <h3 key={index}>{line.replace(/^#+ /, "")}</h3>;
-        if (/^#{3,6} /.test(line))
-          return <h4 key={index}>{line.replace(/^#+ /, "")}</h4>;
-        if (/^- /.test(line))
-          return (
-            <p className="flow-markdown-bullet" key={index}>
-              {line.slice(2)}
-            </p>
-          );
-        return line.trim() ? (
-          <p key={index}>{line}</p>
-        ) : (
-          <div className="flow-markdown-break" key={index} />
-        );
-      })}
-    </div>
-  );
-}
+const BRIEF_LIMIT = 500000;
 
 export function BriefTab({
   project,
@@ -65,41 +44,73 @@ export function BriefTab({
   dirtyScript: React.RefObject<boolean>;
   action: ProjectAction;
 }) {
+  const blocks = useMemo(() => parseBrief(brief), [brief]);
+  const empty = !brief.trim();
+  const save = () =>
+    void action(
+      "Saving brief",
+      async () => {
+        await adapter.rpc("briefSave", { id: project.id, text: brief });
+        dirtyBrief.current = false;
+        setBriefDirty(false);
+      },
+      "Visual brief saved.",
+    );
+
   return (
-    <>
-      <header className="flow-heading">
+    <div className="brief">
+      <header className="flow-heading brief-head">
         <div>
           <h2>Visual brief</h2>
           <p className="flow-muted">
-            Review observed evidence and add your implementation notes.
+            What the capture found on the page, and your notes beside it. It is plain
+            Markdown, so it pastes anywhere.
           </p>
         </div>
-        <div className="flow-actions">
-          <button
-            className="button"
-            aria-pressed={briefMode === "edit"}
-            onClick={() =>
-              setBriefMode(briefMode === "edit" ? "preview" : "edit")
-            }
-          >
-            {briefMode === "edit" ? "Preview" : "Edit brief"}
-          </button>
-        </div>
+        {!(empty && briefMode === "preview") && (
+          <div className="brief-tools">
+            {briefDirty && <span className="edge brief-unsaved">Unsaved changes</span>}
+            <div className="segmented" role="group" aria-label="Brief view">
+              <button
+                type="button"
+                aria-pressed={briefMode === "preview"}
+                onClick={() => setBriefMode("preview")}
+              >
+                Read
+              </button>
+              <button
+                type="button"
+                aria-pressed={briefMode === "edit"}
+                onClick={() => setBriefMode("edit")}
+              >
+                Edit
+              </button>
+            </div>
+            <Button
+              icon="copy"
+              disabled={empty}
+              onClick={() =>
+                void action(
+                  "Copying brief",
+                  () => navigator.clipboard.writeText(brief),
+                  "Brief copied as Markdown.",
+                )
+              }
+            >
+              Copy
+            </Button>
+          </div>
+        )}
       </header>
-      {!brief.trim() && briefMode === "preview" ? (
-        <div className="flow-empty">
-          <h3>
-            {active
-              ? "Your brief is being prepared"
-              : "Add a project brief"}
-          </h3>
+      {empty && briefMode === "preview" ? (
+        <div className="flow-empty brief-empty">
+          <h3>{active ? "Your brief is being prepared" : "This project has no brief yet"}</h3>
           <p className="flow-muted">
             {active
-              ? "The generated evidence report will appear after website capture finishes."
-              : "Write a brief from your reviewed evidence. No AI interpretation has been requested."}
+              ? "It appears here when the website capture finishes."
+              : "Write one from what you saw. Nothing is sent to an AI to do it."}
           </p>
-          <button
-            className="button"
+          <Button
             onClick={() => {
               setBrief(
                 `# ${project.name}\n\n## Overview\n\n## Observations\n\n## Implementation notes\n`,
@@ -111,70 +122,55 @@ export function BriefTab({
             disabled={processing}
           >
             Start a brief
-          </button>
+          </Button>
         </div>
       ) : briefMode === "edit" ? (
-        <label className="flow-field">
-          Brief in Markdown
+        <div className="brief-edit">
+          <label className="sr-only" htmlFor="brief-editor">
+            Brief in Markdown
+          </label>
           <textarea
-            className="field flow-brief-editor"
+            id="brief-editor"
+            className="brief-editor"
             value={brief}
-            maxLength={500000}
+            maxLength={BRIEF_LIMIT}
             onChange={(event) => {
               setBrief(event.target.value);
               dirtyBrief.current = true;
               setBriefDirty(true);
             }}
             disabled={processing}
+            aria-describedby="brief-editor-note"
             spellCheck
           />
-        </label>
-      ) : (
-        <MarkdownPreview text={brief} />
-      )}
-      {briefMode === "edit" && (
-        <div className="flow-actions">
-          <button
-            className="button button-primary"
-            disabled={processing || !briefDirty}
-            onClick={() =>
-              void action(
-                "Saving brief",
-                async () => {
-                  await adapter.rpc("briefSave", {
-                    id: project.id,
-                    text: brief,
-                  });
-                  dirtyBrief.current = false;
-                  setBriefDirty(false);
-                },
-                "Visual brief saved.",
-              )
-            }
-          >
-            Save brief
-          </button>
-          {briefDirty && (
-            <span className="flow-caption flow-muted">
-              Unsaved changes
+          <div className="flow-actions brief-edit-actions">
+            <span id="brief-editor-note" className="edge brief-count">
+              Markdown · {brief.length.toLocaleString()} characters
             </span>
-          )}
+            <Button variant="primary" disabled={processing || !briefDirty} onClick={save}>
+              Save brief
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="brief-read">
+          <BriefContents blocks={blocks} />
+          <BriefDocument blocks={blocks} />
         </div>
       )}
-      {adapter.capabilities.providers &&
-        project.data.walkthroughVideo && (
-          <ScriptEditor
-            project={project}
-            adapter={adapter}
-            processing={processing}
-            script={script}
-            setScript={setScript}
-            scriptDirty={scriptDirty}
-            setScriptDirty={setScriptDirty}
-            dirtyScript={dirtyScript}
-            action={action}
-          />
-        )}
-    </>
+      {adapter.capabilities.providers && project.data.walkthroughVideo && (
+        <ScriptEditor
+          project={project}
+          adapter={adapter}
+          processing={processing}
+          script={script}
+          setScript={setScript}
+          scriptDirty={scriptDirty}
+          setScriptDirty={setScriptDirty}
+          dirtyScript={dirtyScript}
+          action={action}
+        />
+      )}
+    </div>
   );
 }

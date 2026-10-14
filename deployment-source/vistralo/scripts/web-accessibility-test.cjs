@@ -73,6 +73,29 @@ const { serve } = require('./static-server.cjs');
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),name+' '+route+' must not overflow the page');
         assert.equal(await page.locator('h1').count(),1,name+' '+route+' must have one H1');
       }
+      // A project's Trim editor (with a part that is out of order) and its Visual brief, read and edited.
+      const fits = async label => {
+        assert.deepEqual(await rescan(),[],name+' '+label);
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),name+' '+label+' must not overflow the page');
+      };
+      await page.goto(origin+'/#demo/project/demo-homepage-motion');
+      await page.getByRole('tab',{name:'Editor',exact:true}).click();
+      const parts = page.getByRole('list',{name:'Parts to keep',exact:true});
+      await parts.getByLabel('Ends at (seconds)').first().fill('5');
+      await page.getByRole('button',{name:'Add a part',exact:true}).click();
+      await parts.getByLabel('Starts at (seconds)').nth(1).fill('3');
+      await parts.getByLabel('Ends at (seconds)').nth(1).fill('8');
+      await parts.locator('.trim-problem').waitFor();
+      await fits('trim');
+      await page.screenshot({path:path.join(output,name+'-trim.png'),fullPage:true});
+      await page.goto(origin+'/#demo/project/demo-storefront-review');
+      await page.getByRole('tab',{name:'Visual brief',exact:true}).click();
+      await page.locator('.brief-doc').waitFor();
+      await fits('brief');
+      await page.screenshot({path:path.join(output,name+'-brief.png'),fullPage:true});
+      await page.getByRole('button',{name:'Edit',exact:true}).click();
+      await page.getByLabel('Brief in Markdown',{exact:true}).waitFor();
+      await fits('brief editor');
       assert.deepEqual(errors,[]);
       await context.close();
     }

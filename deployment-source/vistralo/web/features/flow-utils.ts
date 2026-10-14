@@ -147,7 +147,7 @@ export function buildClipPlan(
       "Wait for the source duration to be verified before saving a trim plan.",
     );
   if (!clips.length || clips.length > 200)
-    throw new Error("Provide between 1 and 200 clips.");
+    throw new Error("Keep between 1 and 200 parts.");
   let previousEnd = 0;
   return {
     version: 1 as const,
@@ -165,11 +165,11 @@ export function buildClipPlan(
         end > duration
       )
         throw new Error(
-          `Clip ${index + 1} must start at or after 0, end after its start, and stay within ${duration.toFixed(3)} seconds.`,
+          `Part ${index + 1} must start at or after 0, end after its start, and stay within ${duration.toFixed(3)} seconds.`,
         );
       if (start < previousEnd)
         throw new Error(
-          `Clip ${index + 1} overlaps an earlier clip. Keep clips in chronological order without overlap.`,
+          `Part ${index + 1} starts before part ${index} ends. Keep the parts in order.`,
         );
       previousEnd = end;
       return { start, end };
