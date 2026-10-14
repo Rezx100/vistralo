@@ -1,5 +1,5 @@
 import React from "react";
-import { areaCaptureSupported, floatingControlsSupported } from "../capture";
+import { areaCaptureSupported, floatingControlsSupported, tabFocusSupported } from "../capture";
 import { AreaSelector } from "../RecordingControls";
 import { Icon } from "../../components/Icon";
 import { SheetHeader } from "../../components/Primitives";
@@ -25,7 +25,9 @@ export function RecordSetup({
     cancelSource,
     chooseSource,
     beginRecording,
+    siteOnStart,
   } = recorder;
+  const siteHost = siteOnStart ? new URL(siteOnStart).host : "";
   const areaSize =
     display && selectArea && area
       ? `${Math.round(area.width * display.width)} × ${Math.round(area.height * display.height)}`
@@ -106,11 +108,29 @@ export function RecordSetup({
           {display.surface === "browser" && (
             <li>After you press Start recording, switch to the shared tab.</li>
           )}
-          <li>
-            {floatingControlsSupported
-              ? "Recording controls float above your other windows, so you can switch away from this tab."
-              : "Recording controls stay at the bottom of this tab."}
-          </li>
+          {siteHost ? (
+            <>
+              <li>Start recording opens {siteHost} in a new tab of this window.</li>
+              <li>
+                To stop, press Stop Sharing in your browser’s sharing bar, or come back to
+                this tab.
+              </li>
+            </>
+          ) : (
+            <>
+              {!tabFocusSupported && display.surface !== "browser" && (
+                <li>
+                  This browser records the whole window or screen. After you press Start
+                  recording, switch to the page you want to show.
+                </li>
+              )}
+              <li>
+                {floatingControlsSupported
+                  ? "Recording controls float above your other windows, so you can switch away from this tab."
+                  : "Recording controls stay at the bottom of this tab."}
+              </li>
+            </>
+          )}
         </ul>
         {error && (
           <p className="flow-error" role="alert">

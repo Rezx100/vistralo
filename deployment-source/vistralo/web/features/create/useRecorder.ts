@@ -10,6 +10,7 @@ import {
   areaPixels,
   chooseDisplay,
   cropVideoTrack,
+  tabFocusSupported,
   type CaptureArea,
 } from "../capture";
 import type { CreateFlow } from "../create-flows";
@@ -36,6 +37,9 @@ interface RecorderOptions {
 /** Seconds counted before the first frame is recorded. */
 export const COUNTDOWN_SECONDS = 3;
 
+/** How long a stopped recorder gets to hand over its last data before the take is ended without it. */
+const STOP_GRACE_MS = 4000;
+
 export type Recorder = ReturnType<typeof useRecorder>;
 
 export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }: RecorderOptions) {
@@ -56,7 +60,9 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
     // What stopping the recorder is for: save the take (the default), start it again, or throw it away.
     takeIntent = useRef<"save" | "restart" | "discard">("save"),
     wholeFrameTake = useRef(false),
-    countCancel = useRef<(() => void) | null>(null);
+    countCancel = useRef<(() => void) | null>(null),
+    // Ends the current take: what the recorder's stop event runs, callable once.
+    finishTake = useRef<(() => void) | null>(null);
   const recordingStarted = useRef(0),
     elapsedBeforePause = useRef(0);
   const [microphone, setMicrophone] = useState(
@@ -103,6 +109,16 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
     typeof MediaRecorder !== "undefined";
   const microphoneSupported =
     typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+  // Where Start recording goes. Chrome switches to a shared tab itself; a browser that shares
+  // only windows and screens leaves you on Vistralo, so the website typed in is opened instead.
+  const siteOnStart = (() => {
+    if (tabFocusSupported || microphone || !url.trim()) return "";
+    try {
+      return publicWebsite(url);
+    } catch {
+      return "";
+    }
+  })();
 
   const trayProps = {
     paused: recording === "paused",
@@ -144,12 +160,22 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
     countCancel.current?.();
   }
 
+  /**
+   * Stops the recorder and makes sure the take ends. A browser whose recorder never fires its
+   * stop event (seen in Firefox) would otherwise keep sharing with controls that do nothing.
+   */
+  function endTake(capture: MediaRecorder) {
+    const finish = finishTake.current;
+    capture.stop();
+    if (finish) window.setTimeout(finish, STOP_GRACE_MS);
+  }
+
   /** Throws this take away and counts in again on the same screen, window or tab. */
   function restartRecording() {
     const capture = recorder.current;
     if (!capture || capture.state === "inactive") return;
     takeIntent.current = "restart";
-    capture.stop();
+    endTake(capture);
   }
 
   /** Throws this take away and ends the recording. Nothing is saved. */
@@ -157,14 +183,14 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
     const capture = recorder.current;
     if (!capture || capture.state === "inactive") return;
     takeIntent.current = "discard";
-    capture.stop();
+    endTake(capture);
   }
 
   function stopRecording() {
     // Stop is clicked in the floating window, which lets this tab come back to the front.
     window.focus();
     if (recorder.current && recorder.current.state !== "inactive")
-      recorder.current.stop();
+      endTake(recorder.current);
   }
 
   function stopCaptureTracks() {
@@ -292,7 +318,7 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
         "ended",
         () => {
           if (recorder.current && recorder.current.state !== "inactive")
-            recorder.current.stop();
+            endTake(recorder.current);
           else if ((phase.current === "ready" || phase.current === "countdown") && mounted.current) {
             cancelCountdown();
             cancelSource();
@@ -328,7 +354,8 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
     }
   }
 
-  async function beginRecording(wholeFrame = false) {
+  /** `again` is a start-over: the website is already open, so it is not opened a second time. */
+  async function beginRecording(wholeFrame = false, again = false) {
     const selected = displayStream.current;
     if (!selected || phase.current !== "ready" || starting.current) return;
     starting.current = true;
@@ -336,7 +363,13 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
     wholeFrameTake.current = wholeFrame;
     // A tab picked whole starts at once with no click to open a window from; Chrome's own
     // sharing bar stops it there, and the tray in this tab can still float the controls.
-    if (!wholeFrame) void popOutControls();
+    // One click opens one window in Firefox, so the website wins over the floating controls:
+    // the browser's own sharing bar stops the take there.
+    if (!wholeFrame) {
+      const site = siteOnStart && !again ? window.open(siteOnStart, "_blank") : null;
+      if (site) site.opener = null;
+      else void popOutControls();
+    }
     setError("");
     // Sharing can end or the sheet can close while this awaits; a late start must not record.
     const stale = () => !mounted.current || displayStream.current !== selected;
@@ -416,7 +449,8 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
         return;
       }
       stream.current = graph.recorded;
-      const mimeType = recorderMime(microphone && graph.recorded.getAudioTracks().length > 0);
+      const withAudio = graph.recorded.getAudioTracks().length > 0;
+      const mimeType = recorderMime(microphone && withAudio, withAudio);
       const capture = new MediaRecorder(
           graph.recorded,
           mimeType ? { mimeType } : undefined,
@@ -449,7 +483,11 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
         );
         if (capture.state !== "inactive") capture.stop();
       };
-      capture.onstop = async () => {
+      let finished = false;
+      const finish = async () => {
+        if (finished) return;
+        finished = true;
+        if (finishTake.current === endThisTake) finishTake.current = null;
         const intent = takeIntent.current;
         takeIntent.current = "save";
         if (intent === "restart") {
@@ -468,7 +506,7 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
           setCount(COUNTDOWN_SECONDS);
           setRecording("countdown");
           phase.current = "ready";
-          void beginRecording(wholeFrameTake.current);
+          void beginRecording(wholeFrameTake.current, true);
           return;
         }
         if (intent === "discard") {
@@ -526,9 +564,13 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
           if (mounted.current) setRecording("staged");
         }
       };
+      const endThisTake = () => void finish();
+      capture.onstop = endThisTake;
+      finishTake.current = endThisTake;
       // The leader: three, two, one, so the first frame recorded is the one the person meant to show.
       if (!(await countIn(stale))) {
         recorder.current = null;
+        finishTake.current = null;
         if (!stale()) cancelSource();
         return;
       }
@@ -590,6 +632,7 @@ export function useRecorder({ flow, url, mounted, setError, setFile, onDiscard }
     activeRecording,
     screenSupported,
     microphoneSupported,
+    siteOnStart,
     trayProps,
     closeFloating,
     popOutControls,

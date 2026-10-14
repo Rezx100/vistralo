@@ -29,11 +29,21 @@ export async function openMicrophone() {
   }
 }
 
-export function recorderMime(withMicrophone: boolean) {
+/**
+ * An audio codec is named only when there is audio to record. Firefox's recorder, asked for
+ * opus with no audio track, waits for audio that never comes: no data, and stop never ends.
+ */
+export function recorderMime(
+  withMicrophone: boolean,
+  withAudio = withMicrophone,
+  supported: (type: string) => boolean = (type) => MediaRecorder.isTypeSupported(type),
+) {
   const types = withMicrophone
     ? ["video/webm;codecs=vp8,opus", "video/webm"]
-    : ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
-  return types.find((type) => MediaRecorder.isTypeSupported(type));
+    : withAudio
+      ? ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
+      : ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
+  return types.find(supported);
 }
 
 export function buildRecording(
