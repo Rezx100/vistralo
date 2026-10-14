@@ -32,6 +32,9 @@ export const areaCaptureSupported =
   typeof globals.MediaStreamTrackGenerator === "function" &&
   typeof globals.VideoFrame === "function";
 
+/** Chrome and Edge can share one tab and switch to it. Firefox and Safari share only windows and screens. */
+export const tabFocusSupported = typeof globals.CaptureController === "function";
+
 export const floatingControlsSupported =
   typeof window !== "undefined" && "documentPictureInPicture" in window;
 

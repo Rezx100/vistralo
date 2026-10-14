@@ -69,3 +69,14 @@ test('recording recovery closes its database when opening a transaction itself f
   await assert.rejects(recoverRecording(),/Database is closing/);
   assert.equal(closed,1);
 });
+
+test('the recorder names an audio codec only when there is audio to record',()=>{
+  const {recorderMime} = load('create/recording-media');
+  const firefox = type => !type.includes('vp9');
+  // Firefox's recorder asked for opus with no audio track never produces data and never stops.
+  assert.equal(recorderMime(false,false,firefox),'video/webm;codecs=vp8');
+  assert.equal(recorderMime(false,false,()=>true),'video/webm;codecs=vp9');
+  assert.equal(recorderMime(false,true,firefox),'video/webm;codecs=vp8,opus');
+  assert.equal(recorderMime(true,true,()=>true),'video/webm;codecs=vp8,opus');
+  assert.equal(recorderMime(false,false,type=>type==='video/mp4'),'video/mp4');
+});
