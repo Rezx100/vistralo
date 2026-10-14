@@ -15,7 +15,10 @@
     "test:web:a11y": "node scripts/web-accessibility-test.cjs",
     "test:web:journey": "node scripts/web-journey.cjs",
     "test:web:billing": "node scripts/web-billing-journey.cjs",
-    "test:web:signup": "node scripts/web-signup-journey.cjs"
+    "test:web:signup": "node scripts/web-signup-journey.cjs",
+    "build:extension": "node scripts/build-extension.cjs",
+    "typecheck:extension": "tsc -p extension/tsconfig.json",
+    "test:extension": "node scripts/extension-journey.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.99.1",
@@ -25,6 +28,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@types/chrome": "0.3.4",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "axe-core": "^4.11.0",

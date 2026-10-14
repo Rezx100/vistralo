@@ -31,6 +31,7 @@ import { Toast, useToastDismiss } from "./app/Toast";
 import { useNavigation } from "./app/useNavigation";
 import { useOpenedProject, useProjectPolling, useRefresh, type Library } from "./app/useProjects";
 import { useSessionRestore } from "./app/useSession";
+import { useExtensionImport } from "./app/useExtensionImport";
 export default function App() {
   const [mode, setMode] = useState<AppMode>(getMode),
     [path, setPath] = useState(route),
@@ -54,6 +55,8 @@ export default function App() {
     [modal, setModal] = useState(""),
     [flow, setFlow] = useState<CreateFlow | null>(null),
     [recordFlow, setRecordFlow] = useState<CreateFlow>(storedRecordFlow),
+    // The page a recording from the Chrome extension was made on, offered as the website URL.
+    [imported, setImported] = useState<{ url: string } | null>(null),
     // The project saved a moment ago, whose page opens with the share link offered first.
     [fresh, setFresh] = useState<string | null>(null),
     [share, setShare] = useState<Project[] | null>(null),
@@ -190,6 +193,16 @@ export default function App() {
       setFlow(next);
     }
   }
+  useExtensionImport({
+    path,
+    active: mode === "demo" || (sessionReady && authenticated),
+    notify,
+    start: (next, recording) => {
+      setImported(recording);
+      startFlow(next);
+    },
+    leave: () => go(""),
+  });
   function openBilling() {
     go("settings/billing");
   }
@@ -431,10 +444,15 @@ export default function App() {
           source={flowFor(flow).source}
           flow={flow}
           adapter={adapter}
-          onClose={() => setFlow(null)}
+          imported={imported}
+          onClose={() => {
+            setFlow(null);
+            setImported(null);
+          }}
           notify={notify}
           onCreated={(p) => {
             setFlow(null);
+            setImported(null);
             setFresh(p.id);
             sync.upsert(p);
             open(p);

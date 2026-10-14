@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="extension.css"><script src="theme.js"></script><title>Vistralo recorder</title><script defer src="recorder.js"></script></head>
+<body data-phase="idle">
+<main class="recorder">
+  <span class="brand"><img src="icons/emblem.svg" alt=""><h1>Vistralo</h1></span>
+  <div id="status-line" class="status-line"><h2 id="status" aria-live="polite">Recordings in this browser</h2><time id="clock">0:00</time></div>
+  <p id="notice" class="notice" role="status" hidden></p>
+  <section id="live" hidden>
+    <video id="live-preview" class="stage" muted playsinline aria-label="Your camera, as it is being recorded"></video>
+  </section>
+  <div id="controls" class="row" hidden>
+    <button id="pause" type="button" class="button">Pause</button>
+    <button id="restart" type="button" class="button">Start over</button>
+    <button id="cancel" type="button" class="button button-danger">Discard</button>
+    <button id="stop" type="button" class="button button-record">Stop</button>
+  </div>
+  <section id="result" class="result" hidden>
+    <video id="result-video" class="stage" controls playsinline aria-label="Your recording"></video>
+    <p id="result-meta" class="muted"></p>
+    <div class="row">
+      <button id="save" type="button" class="button button-primary">Save to Vistralo</button>
+      <a id="download" class="button" href="#">Download</a>
+      <button id="discard" type="button" class="button button-danger">Discard</button>
+    </div>
+    <p class="muted">Save to Vistralo opens the app, where you choose an AI walkthrough or keep your own voice, and the recording uploads to your workspace. It stays in this browser until the app has it.</p>
+  </section>
+  <section id="library" class="library" hidden>
+    <h2>Recordings in this browser</h2>
+    <ul id="library-list"></ul>
+  </section>
+  <p id="empty" class="muted" hidden>No recordings are waiting in this browser.</p>
+</main>
+</body></html>
