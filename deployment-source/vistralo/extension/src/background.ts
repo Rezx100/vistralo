@@ -26,9 +26,15 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") void chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
 });
 chrome.runtime.onStartup.addListener(() => void markInterrupted());
+// The worker also starts after a crash of the extension alone, or long after the browser started.
+void markInterrupted();
 
-/** A take still marked "recording" when Chrome starts again was cut off by a quit or crash. */
+/**
+ * A take still marked "recording" while no engine is running was cut off by a crash, a quit or
+ * a killed browser. The take under way (if its engine is alive) is never touched.
+ */
 async function markInterrupted() {
+  if (await engineOpen()) return;
   for (const s of await listSessions().catch(() => [])) if (s.state === "recording") await putSession({ ...s, state: "interrupted" }).catch(() => {});
 }
 
@@ -66,6 +72,18 @@ async function showControls(tabId: number) {
 
 let starting = false;
 
+/** A recording at 6 Mbit/s uses about 45 MB a minute; below this there is no room for a useful take. */
+const MIN_FREE_BYTES = 300 * 1024 * 1024;
+
+async function freeBytes() {
+  try {
+    const { quota = Infinity, usage = 0 } = await navigator.storage.estimate();
+    return quota - usage;
+  } catch {
+    return Infinity;
+  }
+}
+
 async function start(options: StartOptions, tabId: number | null): Promise<{ ok: true } | { error: string }> {
   // Two clicks, or a click and a shortcut, must not start two recordings.
   if (starting) return { error: "A recording is already starting." };
@@ -73,6 +91,8 @@ async function start(options: StartOptions, tabId: number | null): Promise<{ ok:
   if (existing && isActive(existing.phase) && (await engineOpen())) return { error: "A recording is already in progress." };
   starting = true;
   try {
+    if ((await freeBytes()) < MIN_FREE_BYTES)
+      return { error: "This computer is almost out of disk space for recordings. Save or discard recordings on the Recordings page, or free some space, then try again." };
     const source = tabId === null ? null : await chrome.tabs.get(tabId).catch(() => null);
     if (options.mode === "tab" && (!source?.id || restrictedUrl(source.url)))
       return { error: "Chrome does not allow recording this page. Open a website, or record a window or screen instead." };
@@ -181,6 +201,7 @@ chrome.commands.onCommand.addListener((command, tab) => {
       else if (s.phase === "countdown" || s.phase === "requesting") await control("cancel");
     } else if (command === "pause-resume" && live) await control(s.phase === "paused" ? "resume" : "pause");
     else if (command === "cancel-recording" && live) await control("cancel");
+    else if (command === "toggle-mute" && live) await control(s.muted ? "unmute" : "mute");
   })();
 });
 

@@ -14,8 +14,8 @@ If someone skips this, the popup shows "Chrome needs your permission…" with a 
 
 1. Click Vistralo on the page to record. The popup shows: **This tab** · Window or screen · Camera only; Microphone; Camera; show my camera in a bubble; record the tab's sound; count down from 3; open in Vistralo when I stop.
 2. **Start recording.** The popup closes. A 3-second count-in covers the page ("Esc to cancel"). The toolbar badge shows "…", then "REC".
-3. Recording: a bar at the bottom left of the page shows a red dot, the clock, pause, start over, discard, **Stop** and hide. The bubble (if on) sits above it and can be dragged. The tab's sound keeps playing. The bar and bubble are part of the recorded pixels; hide the bar to leave it out.
-4. Browsing on: links and reloads in the tab do not stop the recording. On another site the bar is drawn again only if Vistralo has access there; the popup and shortcuts always work.
+3. Recording: a bar at the bottom left of the page shows a red dot, the clock, the microphone meter and mute (when recording the microphone), the bubble size (when the bubble is on), pause, start over, discard, **Stop** and hide. The bubble (if on) sits above it and can be dragged. The tab's sound keeps playing. The bar and bubble are part of the recorded pixels; hide the bar to leave it out.
+4. Browsing on: links and reloads in the tab do not stop the recording. On another site the bar is drawn again only with "Keep the controls on every site" ticked (Chrome asks once); the popup and shortcuts always work.
 5. **Stop** (bar, popup, Alt+Shift+V, or Chrome's "Stop sharing"; closing the tab also stops and keeps the recording).
 6. Result: with "Open in Vistralo" on, the app opens on the save sheet with the recording ready, its page address filled in. Otherwise the **recordings page** opens: player, length and size, Save to Vistralo, Download, Discard.
 
@@ -29,7 +29,9 @@ As above, but Start opens Chrome's **Choose what to share** dialog (tab, window 
 
 Start opens the recordings page with the camera on show while recording; the popup, page shortcuts and that page control it.
 
-## Pause, start over, discard
+## Pause, mute, start over, discard
+
+- **Mute** silences the microphone in the recording without stopping it; the meter keeps moving so you can see you are talking while muted. Start over keeps it muted.
 
 - **Pause** freezes the clock; the file has no paused time. Resume continues the same take.
 - **Start over** throws the take away and counts in again on the same tab, window or screen (Loom documents restart with a countdown, L6).
@@ -47,6 +49,7 @@ Start opens the recordings page with the camera on show while recording; the pop
 | Chrome quits or crashes | Next start: the recordings page lists it as "interrupted" | Up to the last stored second |
 | The engine disappears while the popup says recording | The next control marks it failed: "The recording stopped unexpectedly. What was recorded is kept." | Up to the last stored second |
 | A second Start | "A recording is already in progress." | The first recording |
+| Less than 300 MB free | "This computer is almost out of disk space for recordings…" | Nothing starts |
 
 ## Saving to Vistralo
 

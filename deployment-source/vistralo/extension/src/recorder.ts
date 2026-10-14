@@ -35,7 +35,7 @@ function statusText(s: Snapshot | null) {
     case "failed":
       return "The recording stopped";
     default:
-      return "Recordings in this browser";
+      return "";
   }
 }
 
@@ -65,6 +65,8 @@ function render() {
   const phase = s?.phase ?? "idle";
   document.body.dataset.phase = phase;
   $("status", HTMLElement).textContent = statusText(s);
+  // With nothing recording and nothing open, the list below is the page; it has its own heading.
+  show("status-line", !!statusText(s));
   const live = !!s && isActive(phase);
   $("clock", HTMLElement).hidden = !live;
   $("clock", HTMLElement).textContent = s ? formatClock(elapsed(s, Date.now())) : "0:00";
@@ -132,7 +134,10 @@ async function showLibrary() {
   for (const s of sessions) {
     const item = document.createElement("li");
     const label = document.createElement("span");
-    label.textContent = `${new Date(s.created).toLocaleString()} · ${formatClock(s.durationMs)}${s.state !== "complete" ? " · interrupted" : ""}`;
+    label.textContent =
+      s.state === "complete"
+        ? `${new Date(s.created).toLocaleString()} · ${formatClock(s.durationMs)}`
+        : `${new Date(s.created).toLocaleString()} · about ${formatClock(s.durationMs)} · interrupted`;
     item.append(
       label,
       button("Open", () => {

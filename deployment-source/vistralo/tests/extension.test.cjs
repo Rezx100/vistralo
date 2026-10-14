@@ -92,7 +92,7 @@ test('clock text', () => {
   assert.equal(session.formatClock(3_725_000), '1:02:05');
 });
 
-const options = { mode: 'tab', microphone: 'default', camera: null, bubble: true, systemAudio: true, countdown: true, openWhenDone: true };
+const options = { mode: 'tab', microphone: 'default', camera: null, bubble: true, bubbleSize: 'medium', systemAudio: true, countdown: true, openWhenDone: true };
 
 test('start options are checked field by field', () => {
   assert.equal(messages.isStartOptions(options), true);
@@ -148,4 +148,26 @@ test('the recorded page is kept without its query or fragment', () => {
   assert.equal(recordedPage('file:///C:/private.html'), '');
   assert.equal(recordedPage('not a url'), '');
   assert.equal(recordedPage(42), '');
+});
+
+test('mute applies only to a take with a microphone, only while it is live, and only once', () => {
+  const live = run([{ type: 'started', at: 0 }]);
+  const muted = session.reduce(live, { type: 'mute', at: 1 });
+  assert.equal(muted.muted, true);
+  assert.equal(session.reduce(muted, { type: 'mute', at: 2 }), null, 'a second mute changes nothing');
+  assert.equal(session.reduce(muted, { type: 'unmute', at: 3 }).muted, false);
+  const silent = run([{ type: 'started', at: 0 }], session.newSession({ id: ID, mode: 'tab', sourceTabId: 1, microphone: false, camera: false, title: '', url: '' }, 0));
+  assert.equal(session.reduce(silent, { type: 'mute', at: 1 }), null, 'nothing to mute without a microphone');
+  const done = run([{ type: 'stop', at: 5 }, { type: 'finalizing', at: 6 }, { type: 'ready', at: 7, bytes: 1 }], muted);
+  assert.equal(session.reduce(done, { type: 'unmute', at: 8 }), null);
+  assert.equal(run([{ type: 'restart', at: 9, countdownMs: 0 }], muted).muted, true, 'start over keeps the microphone muted');
+});
+
+test('bubble sizes and meter messages are checked', () => {
+  assert.equal(messages.isStartOptions({ ...options, bubbleSize: 'huge' }), false);
+  assert.equal(messages.isStartOptions({ ...options, bubbleSize: 'small' }), true);
+  assert.equal(messages.isMeterMessage({ to: 'meter', level: 0.4, muted: false }), true);
+  assert.equal(messages.isMeterMessage({ to: 'meter', level: 4, muted: false }), false);
+  assert.equal(messages.isMeterMessage({ to: 'meter', level: 0.4 }), false);
+  assert.equal(messages.isBackgroundRequest({ to: 'background', type: 'control', action: 'mute' }), true);
 });

@@ -33,7 +33,7 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'icons'), { recursive: true });
 fs.mkdirSync(path.join(out, 'assets', 'fonts'), { recursive: true });
 
-const entries = ['background', 'offscreen', 'recorder', 'popup', 'controls', 'camera', 'welcome', 'bridge', 'handoff', 'theme'];
+const entries = ['background', 'offscreen', 'meter', 'recorder', 'popup', 'controls', 'camera', 'welcome', 'bridge', 'handoff', 'theme'];
 esbuild.buildSync({
   entryPoints: entries.map((name) => path.join(src, 'src', `${name}.ts`)),
   bundle: true,

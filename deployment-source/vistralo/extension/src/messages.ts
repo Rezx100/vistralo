@@ -10,6 +10,7 @@ export interface StartOptions {
   camera: string | null;
   /** Show the camera bubble on the page being recorded. */
   bubble: boolean;
+  bubbleSize: BubbleSize;
   /** Record the tab's own sound (tab mode) or system sound where Chrome's chooser offers it. */
   systemAudio: boolean;
   countdown: boolean;
@@ -17,7 +18,10 @@ export interface StartOptions {
   openWhenDone: boolean;
 }
 
-export type ControlAction = "pause" | "resume" | "stop" | "restart" | "cancel";
+export type BubbleSize = "small" | "medium" | "large";
+export const BUBBLE_SIZES: readonly BubbleSize[] = ["small", "medium", "large"];
+
+export type ControlAction = "pause" | "resume" | "stop" | "restart" | "cancel" | "mute" | "unmute";
 
 /** To the service worker. */
 export type BackgroundRequest =
@@ -26,6 +30,17 @@ export type BackgroundRequest =
   | { to: "background"; type: "snapshot"; snapshot: Snapshot }
   | { to: "background"; type: "finished"; sessionId: string; open: boolean }
   | { to: "background"; type: "staged"; sessionId: string };
+
+/** From the engine to the popup and the page bar's meter frame, ten times a second. */
+export interface MeterMessage {
+  to: "meter";
+  level: number;
+  muted: boolean;
+}
+
+export function isMeterMessage(v: unknown): v is MeterMessage {
+  return isObject(v) && v.to === "meter" && num(v.level) && (v.level as number) >= 0 && (v.level as number) <= 1 && bool(v.muted);
+}
 
 /** To the offscreen document that records. */
 export type EngineRequest =
@@ -42,7 +57,7 @@ export type EngineRequest =
 
 const MODES: readonly Mode[] = ["tab", "screen", "camera"];
 const PHASES: readonly Phase[] = ["idle", "requesting", "countdown", "recording", "paused", "stopping", "finalizing", "ready", "cancelled", "failed"];
-const ACTIONS: readonly ControlAction[] = ["pause", "resume", "stop", "restart", "cancel"];
+const ACTIONS: readonly ControlAction[] = ["pause", "resume", "stop", "restart", "cancel", "mute", "unmute"];
 const ID = /^[0-9a-f-]{36}$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -62,6 +77,7 @@ export function isStartOptions(v: unknown): v is StartOptions {
     device(v.microphone) &&
     device(v.camera) &&
     bool(v.bubble) &&
+    BUBBLE_SIZES.includes(v.bubbleSize as BubbleSize) &&
     bool(v.systemAudio) &&
     bool(v.countdown) &&
     bool(v.openWhenDone) &&
@@ -83,6 +99,7 @@ export function isSnapshot(v: unknown): v is Snapshot {
     numOrNull(v.sourceTabId) &&
     numOrNull(v.recorderTabId) &&
     bool(v.microphone) &&
+    bool(v.muted) &&
     bool(v.camera) &&
     num(v.bytes) &&
     text(v.error, 500) &&

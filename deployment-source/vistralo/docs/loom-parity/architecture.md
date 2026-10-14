@@ -54,11 +54,11 @@ All checked in `src/messages.ts` before use:
 - **Tab:** the worker asks `tabCapture.getMediaStreamId({targetTabId})` right after the toolbar click; the engine opens it with `chromeMediaSource: "tab"`, then limits it to 1920×1080 at 30 fps with `applyConstraints` (never upscaled). Tab sound is mixed into the recording and played back, because capture mutes the tab.
 - **Window or screen:** `getDisplayMedia` in the engine shows Chrome's own chooser (tab, window or screen; system audio where Chrome offers it). System sound is not played back (it was never muted).
 - **Camera only:** `getUserMedia` with the chosen camera, ideal 1080p30.
-- **Microphone:** mixed in with echo cancellation, noise suppression and auto gain; never played back.
+- **Microphone:** mixed in with echo cancellation, noise suppression and auto gain through a gain node that mute sets to zero; never played back. An analyser before the gain sends the level ten times a second (`{to: "meter"}`) to the popup and to `meter.html`, a frame in the page bar, so speech still shows while muted.
 - **Codec:** VP9 (VP8 fallback) with Opus when there is any audio, video-only codecs otherwise (an audio codec with no audio track stalls some recorders). 6 Mbit/s video, 128 kbit/s audio.
-- **Storage:** `MediaRecorder.start(1000)`; each piece is written to IndexedDB (`vistralo-extension`, stores `sessions` and `chunks` keyed `[session, take, seq]`) before the next. Memory holds about one second. `unlimitedStorage` keeps Chrome from evicting it. A write failure stops the take and keeps what was written.
+- **Storage:** a start is refused when less than 300 MB is free. `MediaRecorder.start(1000)`; each piece is written to IndexedDB (`vistralo-extension`, stores `sessions` and `chunks` keyed `[session, take, seq]`) before the next. Memory holds about one second. `unlimitedStorage` keeps Chrome from evicting it. A write failure stops the take and keeps what was written.
 - **Finishing:** all pieces of the last take, in order, form one WebM stream; earlier takes are deleted. Stop always ends the take, even if Chrome never fires the recorder's stop event (4 s grace).
-- **Crash:** a take still marked `recording` when Chrome starts again is marked `interrupted` and listed on the recordings page. It plays up to its last stored second (pieces from one recorder join as one stream). Its duration field may be missing until the worker probes it.
+- **Crash:** the stored session's length and size are updated every 2 seconds. A take still marked `recording` while no engine is running (checked whenever the service worker starts, and when Chrome starts) is marked `interrupted` and listed on the recordings page. It plays up to its last stored second (pieces from one recorder join as one stream). Its duration field may be missing until the worker probes it.
 - **Release:** on stop, cancel or failure every track is stopped, the audio graph closed, and the offscreen document closed.
 
 ## Hand-over to the web app
@@ -82,9 +82,10 @@ The app's Content Security Policy did not block the extension frame (tested agai
 | `storage` | Settings and the live session snapshot | Install |
 | `unlimitedStorage` | Long recordings kept until saved | Install |
 | Content script on `app.vistralo.com` | The bridge to the app | Install |
+| Optional `http://*/*`, `https://*/*` | Draw the controls again after the tab moves to another site | Only when the person ticks "Keep the controls on every site", asked in that click; unticking removes it |
 | `host_permissions` for the local app host | **Dev builds saving to a local app only**, for tests | Never in release |
 
-Not requested: `tabs` (no browsing-history access), `desktopCapture` (Chrome's chooser via `getDisplayMedia` is used), `downloads` (an ordinary download link), `identity`, `<all_urls>`. Controls disappear after navigating to a different site until the user clicks Vistralo there; an optional host permission to keep them is in the roadmap (C2) and must be asked for explicitly.
+Not requested: `tabs` (no browsing-history access), `desktopCapture` (Chrome's chooser via `getDisplayMedia` is used), `downloads` (an ordinary download link), `identity`. Without the optional permission, the controls disappear after the tab moves to a different site until the person clicks Vistralo there; the popup, badge and shortcuts keep working.
 
 ## Builds
 

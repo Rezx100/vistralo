@@ -24,9 +24,14 @@
     <label class="field">Camera<select id="camera"></select></label>
     <p id="camera-needed" class="notice" hidden>Choose a camera to record camera only.</p>
     <label id="bubble-row" class="check"><input id="bubble" type="checkbox">Show my camera in a bubble on the page</label>
+    <label id="bubble-size-row" class="field">Bubble size<select id="bubble-size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
     <label id="system-audio-row" class="check"><input id="system-audio" type="checkbox"><span id="system-audio-label">Record the tab's sound</span></label>
     <label class="check"><input id="countdown" type="checkbox">Count down from 3 before recording</label>
     <label class="check"><input id="open-when-done" type="checkbox">Open the recording in Vistralo when I stop</label>
+    <div id="every-site-row">
+    <label class="check"><input id="every-site" type="checkbox" aria-describedby="every-site-help">Keep the controls on every site I visit while recording</label>
+    <p id="every-site-help" class="muted">Chrome will ask to let Vistralo draw on websites. Without it, the controls stay on the page you started on.</p>
+    </div>
     <section id="permission" class="notice" hidden>
       <p>Chrome needs your permission to use the microphone or camera.</p>
       <button id="allow" type="button" class="link-button">Allow microphone and camera</button>
@@ -38,6 +43,11 @@
   <section id="session" class="session" aria-live="polite" hidden>
     <p id="session-status">Recording</p>
     <time id="session-clock" class="session-clock">0:00</time>
+    <div id="mic-row" class="row" hidden>
+      <div class="meter" role="img" aria-label="Microphone level"><span></span><span></span><span></span><span></span><span></span></div>
+      <p class="meter-muted">Microphone muted</p>
+      <button id="mute" type="button" class="button">Mute</button>
+    </div>
     <div class="row">
       <button id="pause" type="button" class="button">Pause</button>
       <button id="stop" type="button" class="button button-record">Stop</button>

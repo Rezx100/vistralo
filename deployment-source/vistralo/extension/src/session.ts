@@ -29,6 +29,8 @@ export interface Snapshot {
   sourceTabId: number | null;
   recorderTabId: number | null;
   microphone: boolean;
+  /** The microphone is in the recording but silenced for now. */
+  muted: boolean;
   camera: boolean;
   bytes: number;
   error: string;
@@ -48,6 +50,8 @@ export type SessionEvent =
   | { type: "restart"; at: number; countdownMs: number }
   | { type: "cancel"; at: number }
   | { type: "fail"; at: number; error: string }
+  | { type: "mute"; at: number }
+  | { type: "unmute"; at: number }
   | { type: "bytes"; at: number; bytes: number };
 
 /** A session in one of these phases holds the screen, camera or microphone, or is about to. */
@@ -73,6 +77,7 @@ export function newSession(
     runningSince: null,
     countdownEndsAt: null,
     take: 1,
+    muted: false,
     recorderTabId: null,
     bytes: 0,
     error: "",
@@ -138,6 +143,11 @@ export function reduce(s: Snapshot, e: SessionEvent): Snapshot | null {
             countdownEndsAt: null,
             error: e.error,
           })
+        : null;
+    case "mute":
+    case "unmute":
+      return s.microphone && (s.phase === "countdown" || s.phase === "recording" || s.phase === "paused") && s.muted !== (e.type === "mute")
+        ? next({ muted: e.type === "mute" })
         : null;
     case "bytes":
       return s.phase === "recording" || s.phase === "paused" || s.phase === "stopping"

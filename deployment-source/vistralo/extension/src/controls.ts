@@ -1,7 +1,7 @@
 // Recording controls and the camera bubble, drawn on the page being recorded. They live in a
 // closed shadow root so the page's styles and scripts do not reach them. They hold no media and
 // no account data: they read the session snapshot and send controls to the service worker.
-import type { ControlAction, StartOptions } from "./messages";
+import { BUBBLE_SIZES, type ControlAction, type StartOptions } from "./messages";
 import { elapsed, formatClock, isActive, type Snapshot } from "./session";
 
 declare global {
@@ -32,6 +32,9 @@ async function mount() {
     <div class="bar" role="toolbar" aria-label="Vistralo recording" hidden>
       <span class="dot" aria-hidden="true"></span>
       <time class="clock" aria-live="off">0:00</time>
+      <iframe class="meter" title="Microphone level" hidden></iframe>
+      <button type="button" data-action="mute" aria-label="Mute microphone" title="Mute microphone" hidden>🎙</button>
+      <button type="button" data-action="size" aria-label="Change camera size" title="Camera size" hidden>◐</button>
       <button type="button" data-action="pause" aria-label="Pause recording" title="Pause">❚❚</button>
       <button type="button" data-action="restart" aria-label="Start over" title="Start over">↺</button>
       <button type="button" data-action="cancel" aria-label="Discard recording" title="Discard">✕</button>
@@ -47,6 +50,9 @@ async function mount() {
   const clock = q<HTMLElement>(".clock");
   const pause = q<HTMLButtonElement>('[data-action="pause"]');
   const reveal = q<HTMLButtonElement>(".reveal");
+  const mute = q<HTMLButtonElement>('[data-action="mute"]');
+  const size = q<HTMLButtonElement>('[data-action="size"]');
+  const meter = q<HTMLIFrameElement>(".meter");
   let hidden = false;
   let bubble: HTMLElement | null = null;
   let snapshot: Snapshot | null = null;
@@ -61,11 +67,13 @@ async function mount() {
       paint();
       return;
     }
-    const action = target.dataset.action as ControlAction | undefined;
+    const action = target.dataset.action;
     if (action === "pause") send(snapshot?.phase === "paused" ? "resume" : "pause");
+    else if (action === "mute") send(snapshot?.muted ? "unmute" : "mute");
+    else if (action === "size") void nextBubbleSize();
     else if (action === "cancel") {
       if (confirm("Discard this recording?")) send("cancel");
-    } else if (action) send(action);
+    } else if (action) send(action as ControlAction);
   });
   window.addEventListener(
     "keydown",
@@ -77,6 +85,14 @@ async function mount() {
     },
     true,
   );
+
+  /** Small, medium, large, and round again; remembered for the next recording too. */
+  async function nextBubbleSize() {
+    const { options } = (await chrome.storage.local.get("options")) as { options?: StartOptions };
+    if (!options) return;
+    const next = BUBBLE_SIZES[(BUBBLE_SIZES.indexOf(options.bubbleSize ?? "medium") + 1) % BUBBLE_SIZES.length];
+    await chrome.storage.local.set({ options: { ...options, bubbleSize: next } });
+  }
 
   async function ensureBubble(s: Snapshot) {
     const { options } = (await chrome.storage.local.get("options")) as { options?: StartOptions };
@@ -96,6 +112,8 @@ async function mount() {
       bubble.remove();
       bubble = null;
     }
+    if (bubble) bubble.dataset.size = options?.bubbleSize ?? "medium";
+    size.hidden = !bubble;
   }
 
   function paint() {
@@ -105,7 +123,16 @@ async function mount() {
       host.remove();
       window.__vistraloControls = false;
       clearInterval(tick);
+      chrome.storage.onChanged.removeListener(changed);
       return;
+    }
+    mute.hidden = !s.microphone;
+    mute.classList.toggle("is-off", s.muted);
+    mute.setAttribute("aria-label", s.muted ? "Unmute microphone" : "Mute microphone");
+    mute.title = s.muted ? "Unmute microphone" : "Mute microphone";
+    if (s.microphone && meter.hidden) {
+      meter.src = chrome.runtime.getURL("meter.html");
+      meter.hidden = false;
     }
     count.hidden = s.phase !== "countdown";
     bar.hidden = hidden || s.phase === "countdown" || s.phase === "requesting";
@@ -126,11 +153,13 @@ async function mount() {
     if (s && isActive(s.phase)) void ensureBubble(s);
   }
 
-  const { session } = await chrome.storage.session.get("session").catch(() => ({ session: null }));
-  update((session as Snapshot) ?? null);
-  chrome.storage.onChanged.addListener((changes, area) => {
+  function changed(changes: Record<string, chrome.storage.StorageChange>, area: string) {
     if (area === "session" && "session" in changes) update((changes.session.newValue as Snapshot) ?? null);
-  });
+    if (area === "local" && "options" in changes && snapshot) void ensureBubble(snapshot);
+  }
+  const { session } = await chrome.storage.session.get("session").catch(() => ({ session: null }));
+  chrome.storage.onChanged.addListener(changed);
+  update((session as Snapshot) ?? null);
 }
 
 /** Lets the bubble be moved out of the way; it stays inside the window. */

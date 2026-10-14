@@ -71,6 +71,20 @@ function peakDb(file) {
   return Number((/max_volume: (-?[\d.]+) dB/.exec(text) || [])[1]);
 }
 
+/** Peak level of one stretch of a file's audio, in dB. */
+function peakDbBetween(file, start, seconds) {
+  const r = require('node:child_process').spawnSync('ffmpeg', ['-hide_banner', '-ss', String(start), '-t', String(seconds), '-i', file, '-vn', '-af', 'volumedetect', '-f', 'null', '-'], { encoding: 'utf8' });
+  return Number((/max_volume: (-?[\d.]+) dB/.exec(r.stderr || '') || [])[1]);
+}
+
+/** Playing length found by decoding: MediaRecorder's WebM carries no duration in its header. */
+function durationOf(file) {
+  const r = require('node:child_process').spawnSync('ffmpeg', ['-hide_banner', '-i', file, '-f', 'null', '-'], { encoding: 'utf8' });
+  const times = [...(r.stderr || '').matchAll(/time=(\d+):(\d+):([\d.]+)/g)];
+  const last = times.at(-1);
+  return last ? Number(last[1]) * 3600 + Number(last[2]) * 60 + Number(last[3]) : NaN;
+}
+
 async function step(name, run) {
   const started = Date.now();
   try {
@@ -83,8 +97,35 @@ async function step(name, run) {
   }
 }
 
-async function browser(fakeDevices, site, run) {
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'vistralo-ext-'));
+/** The ids of the Chrome processes running this profile. */
+function browserProcesses(profile) {
+  if (process.platform === 'win32') {
+    const quoted = profile.replace(/'/g, "''");
+    const out = execFileSync('powershell', ['-NoProfile', '-Command', `@(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'chrome.exe' -and $_.CommandLine -like '*${quoted}*' } | ForEach-Object { $_.ProcessId }) -join ','`], { encoding: 'utf8' });
+    return out.trim().split(',').filter(Boolean).map(Number);
+  }
+  const r = require('node:child_process').spawnSync('pgrep', ['-f', profile], { encoding: 'utf8' });
+  return (r.stdout || '').trim().split('\n').filter(Boolean).map(Number);
+}
+
+/** Ends every Chrome process using this profile at once, as a crash would, and waits until none is left. */
+async function killBrowser(profile) {
+  for (let round = 0; round < 20; round++) {
+    const ids = browserProcesses(profile);
+    if (!ids.length) return;
+    for (const id of ids) {
+      try {
+        process.kill(id, 'SIGKILL');
+      } catch {
+        /* Already gone. */
+      }
+    }
+    await wait(250);
+  }
+  throw new Error('Chrome did not exit after being killed.');
+}
+
+async function browser(fakeDevices, site, run, { profile = fs.mkdtempSync(path.join(os.tmpdir(), 'vistralo-ext-')), keepProfile = false } = {}) {
   const context = await chromium.launchPersistentContext(profile, {
     executablePath: process.env.VISTRALO_TEST_CHROMIUM,
     headless: process.env.VISTRALO_HEADFUL !== '1',
@@ -101,8 +142,9 @@ async function browser(fakeDevices, site, run) {
     ],
   });
   try {
-    const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker', { timeout: 15000 }));
-    assert.equal(new URL(worker.url()).host, extensionId, 'The extension id must be the fixed dev id.');
+    // A profile started again may not report its already-registered worker; opening a page wakes it.
+    const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker', { timeout: 15000 }).catch(() => null));
+    if (worker) assert.equal(new URL(worker.url()).host, extensionId, 'The extension id must be the fixed dev id.');
     // An extension page to talk to the service worker from, as the popup does.
     const control = await context.newPage();
     await control.goto(`chrome-extension://${extensionId}/popup.html`);
@@ -139,6 +181,8 @@ async function browser(fakeDevices, site, run) {
         [query, id],
       );
     const t = {
+      profile,
+      kill: () => killBrowser(profile),
       context,
       control,
       snapshot,
@@ -159,7 +203,7 @@ async function browser(fakeDevices, site, run) {
         }
         throw new Error(`Timed out waiting for ${label}; last snapshot ${JSON.stringify(last)}`);
       },
-      options: (over) => ({ mode: 'tab', microphone: null, camera: null, bubble: false, systemAudio: true, countdown: true, openWhenDone: false, ...over }),
+      options: (over) => ({ mode: 'tab', microphone: null, camera: null, bubble: false, bubbleSize: 'medium', systemAudio: true, countdown: true, openWhenDone: false, ...over }),
       stored: (id) => idb('stored', id),
       exportTake: async (id, file) => fs.writeFileSync(file, Buffer.from(await idb('take', id))),
     };
@@ -168,8 +212,8 @@ async function browser(fakeDevices, site, run) {
     await t.page.goto(site.origin + '/');
     await run(t);
   } finally {
-    await context.close();
-    fs.rmSync(profile, { recursive: true, force: true });
+    await context.close().catch(() => {});
+    if (!keepProfile) fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
 }
 
@@ -209,14 +253,17 @@ async function main() {
         await wait(600);
         await t.page.screenshot({ path: path.join(evidence, 'tab-countdown.png') });
         let s = await t.until((x) => x && x.phase === 'recording', 8000, 'recording');
+        const wallStart = Date.now();
         await t.page.click('#beep');
         await wait(2500);
         await t.page.screenshot({ path: path.join(evidence, 'tab-recording-controls.png') });
         await t.send({ to: 'background', type: 'control', action: 'pause' });
+        const pauseAsked = Date.now();
         s = await t.until((x) => x.phase === 'paused', 5000, 'paused');
         const held = s.elapsedMs;
         await wait(1500);
         assert.equal((await t.snapshot()).elapsedMs, held, 'the clock holds while paused');
+        const resumeAsked = Date.now();
         await t.send({ to: 'background', type: 'control', action: 'resume' });
         await t.until((x) => x.phase === 'recording', 5000, 'resumed');
         await t.page.click('#next');
@@ -224,10 +271,18 @@ async function main() {
         await wait(2500);
         assert.equal((await t.snapshot()).phase, 'recording', 'recording survives navigating the tab');
         // Stop twice: the second must change nothing.
+        const stopAsked = Date.now();
         await t.send({ to: 'background', type: 'control', action: 'stop' });
         await t.send({ to: 'background', type: 'control', action: 'stop' });
         s = await t.until((x) => x.phase === 'ready', 20000, 'ready');
-        assert.ok(s.elapsedMs > 4500 && s.elapsedMs < 9000, `recorded ${s.elapsedMs} ms, without the pause`);
+        // The 1.5 s pause is left out: the take is shorter than the wall time by most of it, and longer
+        // than the time held at the pause by the 2.5 s or more recorded after resuming. Message delays vary, so
+        // the bounds are loose rather than exact.
+        const wall = stopAsked - wallStart;
+        assert.ok(s.elapsedMs < wall - 1000, `recorded ${s.elapsedMs} ms of ${wall} ms wall time, without the pause`);
+        assert.ok(s.elapsedMs > held + 2000, `recorded ${s.elapsedMs} ms, more than ${held} ms at the pause plus the time after it`);
+        void pauseAsked;
+        void resumeAsked;
         const file = path.join(evidence, 'tab.webm');
         await t.exportTake(s.id, file);
         const probe = ffprobe(file);
@@ -284,6 +339,7 @@ async function main() {
         await t.until((x) => x && x.phase === 'recording', 15000, 'recording');
         const again = await t.send({ to: 'background', type: 'start', tabId, options: t.options({ countdown: false }) });
         assert.match(again.error || '', /already/);
+        await wait(1500);
         await t.send({ to: 'background', type: 'control', action: 'stop' });
         await t.until((x) => x.phase === 'ready', 20000, 'ready');
       });
@@ -316,11 +372,52 @@ async function main() {
         await t.exportTake(s.id, file);
         const probe = ffprobe(file);
         fs.writeFileSync(path.join(evidence, 'camera.ffprobe.json'), JSON.stringify(probe, null, 2));
-        assert.deepEqual((probe.streams || []).map((x) => x.codec_type).sort(), ['audio', 'video']);
+        const kept = await t.stored(s.id);
+        assert.deepEqual((probe.streams || []).map((x) => x.codec_type).sort(), ['audio', 'video'], JSON.stringify({ size: fs.statSync(file).size, kept, snapshot: s, probe }));
         assert.ok(decodes(file));
         // Chrome's fake microphone beeps, so a silent voice track means the mix is broken.
         const peak = peakDb(file);
         assert.ok(peak > -40, `the microphone is in the recording (peak ${peak} dB)`);
+      });
+
+      await step('mute: the muted stretch is silent, the meter moves, the rest keeps the voice', async () => {
+        await t.idle();
+        const tabId = await t.tabOf(t.page);
+        assert.deepEqual(await t.send({ to: 'background', type: 'start', tabId, options: t.options({ mode: 'camera', camera: 'default', microphone: 'default', countdown: false }) }), { ok: true });
+        // Counts the level messages the popup receives that show sound, as its meter does.
+        await t.control.evaluate(() => {
+          window.__heard = 0;
+          chrome.runtime.onMessage.addListener((m) => {
+            if (m && m.to === 'meter' && m.level > 0.05) window.__heard++;
+          });
+        });
+        await t.until((x) => x && x.phase === 'recording', 15000, 'recording');
+        await wait(2500);
+        const lit = await t.control.evaluate(() => window.__heard);
+        const at = async () => {
+          const s = await t.snapshot();
+          return (s.elapsedMs + (s.runningSince ? Date.now() - s.runningSince : 0)) / 1000;
+        };
+        const mutedAt = await at();
+        await t.send({ to: 'background', type: 'control', action: 'mute' });
+        assert.equal((await t.until((x) => x.muted === true, 5000, 'muted')).muted, true);
+        await wait(3000);
+        const unmutedAt = await at();
+        await t.send({ to: 'background', type: 'control', action: 'unmute' });
+        await t.until((x) => x.muted === false, 5000, 'unmuted');
+        await wait(2500);
+        await t.send({ to: 'background', type: 'control', action: 'stop' });
+        const s = await t.until((x) => x.phase === 'ready', 20000, 'ready');
+        const file = path.join(evidence, 'mute.webm');
+        await t.exportTake(s.id, file);
+        assert.ok(decodes(file));
+        const before = peakDbBetween(file, 0.3, Math.max(1, mutedAt - 0.6));
+        const during = peakDbBetween(file, mutedAt + 0.6, Math.max(1, unmutedAt - mutedAt - 1.2));
+        const after = peakDbBetween(file, unmutedAt + 0.6, 1.5);
+        fs.writeFileSync(path.join(evidence, 'mute.levels.json'), JSON.stringify({ mutedAt, unmutedAt, before, during, after, meterBarsLit: lit }, null, 2));
+        assert.ok(before > -40 && after > -40, `voice before (${before} dB) and after (${after} dB) the mute`);
+        assert.ok(during < -60, `silence while muted (${during} dB)`);
+        assert.ok(lit > 0, 'the popup meter showed the microphone level');
       });
 
       await step("window or screen through Chrome's chooser, with the microphone", async () => {
@@ -350,6 +447,16 @@ async function main() {
         await wait(2500);
         const frames = t.page.frames().map((f) => f.url());
         await t.page.screenshot({ path: path.join(evidence, 'camera-bubble.png') });
+        const bubbleFrame = t.page.frames().find((f) => f.url().includes('/camera.html'));
+        const medium = await (await bubbleFrame.frameElement()).boundingBox();
+        await t.control.evaluate(async () => {
+          const { options } = await chrome.storage.local.get('options');
+          await chrome.storage.local.set({ options: { ...options, bubbleSize: 'small' } });
+        });
+        await wait(800);
+        const small = await (await bubbleFrame.frameElement()).boundingBox();
+        assert.ok(small.width < medium.width, `the bubble shrinks (${medium.width} to ${small.width} px)`);
+        assert.equal(t.page.frames().find((f) => f.url().includes('/meter.html')), undefined, 'no microphone, no meter on the bar');
         await t.send({ to: 'background', type: 'control', action: 'cancel' });
         await t.until((x) => x.phase === 'cancelled', 10000, 'cancelled');
         assert.ok(frames.some((u) => u.startsWith(`chrome-extension://${extensionId}/camera.html`)), `the bubble frame is on the page (${frames.join(', ')})`);
@@ -366,6 +473,54 @@ async function main() {
         await welcome.screenshot({ path: path.join(evidence, 'welcome.png'), fullPage: true });
       });
     });
+
+    // Chrome killed mid-take, then started again on the same profile.
+    const crashProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'vistralo-crash-'));
+    let crashed = null;
+    await browser(
+      false,
+      site,
+      async (t) => {
+        await step('crash: Chrome is killed seven seconds into a take', async () => {
+          const tabId = await t.tabOf(t.page);
+          assert.deepEqual(await t.send({ to: 'background', type: 'start', tabId, options: t.options({ countdown: false }) }), { ok: true });
+          await t.until((x) => x && x.phase === 'recording', 15000, 'recording');
+          await wait(7000);
+          crashed = (await t.snapshot()).id;
+          await t.kill();
+        });
+      },
+      { profile: crashProfile, keepProfile: true },
+    );
+    await browser(
+      false,
+      site,
+      async (t) => {
+        await step('crash: after a restart the take is listed as interrupted and plays to near the kill', async () => {
+          assert.ok(crashed, 'needs the killed take');
+          let stored;
+          for (let i = 0; i < 50; i++) {
+            stored = await t.stored(crashed);
+            if (stored.session?.state === 'interrupted') break;
+            await wait(200);
+          }
+          assert.equal(stored.session?.state, 'interrupted', JSON.stringify(stored));
+          assert.ok(stored.session.durationMs >= 4000, `the stored length was kept up to date (${stored.session.durationMs} ms)`);
+          const file = path.join(evidence, 'crash-recovered.webm');
+          await t.exportTake(crashed, file);
+          assert.ok(decodes(file), 'the recovered take decodes');
+          const seconds = durationOf(file);
+          fs.writeFileSync(path.join(evidence, 'crash-recovered.json'), JSON.stringify({ stored: stored.session, fileSeconds: seconds }, null, 2));
+          assert.ok(seconds >= 5, `the take plays to near the kill (${seconds} s)`);
+          const library = await t.context.newPage();
+          await library.goto(`chrome-extension://${extensionId}/recorder.html`);
+          await library.waitForSelector('#library-list li');
+          assert.match(await library.textContent('#library-list'), /interrupted/);
+          await library.screenshot({ path: path.join(evidence, 'crash-library.png') });
+        });
+      },
+      { profile: crashProfile },
+    );
   } finally {
     const passed = results.filter((r) => r.ok).length;
     fs.writeFileSync(path.join(evidence, 'extension-journey.json'), JSON.stringify({ when: new Date().toISOString(), passed, total: results.length, results }, null, 2));

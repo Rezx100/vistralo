@@ -56,6 +56,7 @@ jobs:
           node --check scripts/paddle-csp-probe.cjs
           node --check scripts/web-signup-journey.cjs
           node --check scripts/extension-journey.cjs
+          node --check scripts/extension-long-recording.cjs
           bash -n deploy/vps-worker-install.sh
 
   web-browser:

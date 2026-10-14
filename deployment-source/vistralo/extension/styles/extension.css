@@ -327,3 +327,42 @@ body[data-phase="recording"] .status-line::before {
 .camera.is-off video {
   display: none;
 }
+
+/* Microphone meter: in the popup, and in a frame inside the page bar */
+.meter {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  height: var(--tray-meter-height);
+}
+.meter span {
+  width: var(--tray-meter-width);
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--edge-print-dim);
+}
+.meter span.is-on {
+  background: var(--success-fg);
+}
+.meter-muted {
+  display: none;
+  color: var(--record-text);
+  font-size: var(--font-caption);
+  line-height: var(--line-caption);
+}
+.is-muted .meter {
+  display: none;
+}
+.is-muted .meter-muted {
+  display: block;
+}
+.meter-frame {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  margin: var(--space-0);
+  background: var(--rebate);
+}
+.meter-frame .meter-muted {
+  color: var(--overlay-fg);
+}

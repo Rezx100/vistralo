@@ -1,6 +1,6 @@
 // The toolbar popup: choose what to record and start, or control the recording under way.
 // Closing it changes nothing; the recording belongs to the recording tab.
-import type { ControlAction, StartOptions } from "./messages";
+import { isMeterMessage, type BubbleSize, type ControlAction, type StartOptions } from "./messages";
 import { elapsed, formatClock, isActive, type Mode, type Snapshot } from "./session";
 import { APP_ORIGIN, currentSnapshot, onSnapshot, saveOptions, savedOptions } from "./settings";
 import { $, devices, permission, show } from "./ui";
@@ -40,6 +40,7 @@ function readForm(): StartOptions {
     microphone,
     camera,
     bubble: $("bubble", HTMLInputElement).checked,
+    bubbleSize: $("bubble-size", HTMLSelectElement).value as BubbleSize,
     systemAudio: $("system-audio", HTMLInputElement).checked,
     countdown: $("countdown", HTMLInputElement).checked,
     openWhenDone: $("open-when-done", HTMLInputElement).checked,
@@ -51,6 +52,8 @@ function syncForm() {
   const tabBlocked = o.mode === "tab" && restricted(tab?.url);
   show("tab-blocked", tabBlocked);
   show("bubble-row", o.camera !== null && o.mode !== "camera");
+  show("bubble-size-row", o.camera !== null && o.mode !== "camera" && o.bubble);
+  show("every-site-row", o.mode !== "camera");
   $("system-audio-label", HTMLElement).textContent = o.mode === "tab" ? "Record the tab's sound" : "Record system sound when offered";
   show("system-audio-row", o.mode !== "camera");
   const noCamera = o.mode === "camera" && o.camera === null;
@@ -100,6 +103,9 @@ function render() {
   $("pause", HTMLButtonElement).textContent = s.phase === "paused" ? "Resume" : "Pause";
   for (const id of ["pause", "stop", "restart"]) $(id, HTMLButtonElement).disabled = !running;
   $("cancel", HTMLButtonElement).disabled = !(running || s.phase === "countdown" || s.phase === "requesting");
+  show("mic-row", s.microphone);
+  document.body.classList.toggle("is-muted", s.muted);
+  $("mute", HTMLButtonElement).textContent = s.muted ? "Unmute" : "Mute";
 }
 
 function openRecorderTab() {
@@ -116,6 +122,17 @@ void (async () => {
   const radio = document.querySelector<HTMLInputElement>(`input[name="mode"][value="${options.mode}"]`);
   if (radio) radio.checked = true;
   $("bubble", HTMLInputElement).checked = options.bubble;
+  $("bubble-size", HTMLSelectElement).value = options.bubbleSize;
+  const hosts = { origins: ["http://*/*", "https://*/*"] };
+  const everySite = $("every-site", HTMLInputElement);
+  everySite.checked = await chrome.permissions.contains(hosts);
+  // Asked for only when ticked, in the click itself, as Chrome requires.
+  everySite.addEventListener("change", () => {
+    void (everySite.checked ? chrome.permissions.request(hosts) : chrome.permissions.remove(hosts).then(() => false)).then(
+      (granted) => (everySite.checked = granted),
+      () => (everySite.checked = false),
+    );
+  });
   $("system-audio", HTMLInputElement).checked = options.systemAudio;
   $("countdown", HTMLInputElement).checked = options.countdown;
   $("open-when-done", HTMLInputElement).checked = options.openWhenDone;
@@ -137,6 +154,15 @@ void (async () => {
   });
   $("allow", HTMLButtonElement).onclick = () => void chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
   $("pause", HTMLButtonElement).onclick = () => control(snapshot?.phase === "paused" ? "resume" : "pause");
+  $("mute", HTMLButtonElement).onclick = () => control(snapshot?.muted ? "unmute" : "mute");
+  const bars = Array.from(document.querySelectorAll<HTMLElement>("#mic-row .meter span"));
+  const engine = chrome.runtime.getURL("offscreen.html");
+  chrome.runtime.onMessage.addListener((message: unknown, sender) => {
+    if (!isMeterMessage(message) || sender.url !== engine) return false;
+    const lit = Math.round(message.level * bars.length);
+    bars.forEach((bar, i) => bar.classList.toggle("is-on", i < lit));
+    return false;
+  });
   $("stop", HTMLButtonElement).onclick = () => control("stop");
   $("restart", HTMLButtonElement).onclick = () => control("restart");
   $("cancel", HTMLButtonElement).onclick = () => control("cancel");

@@ -7,6 +7,7 @@ export const DEFAULT_OPTIONS: StartOptions = {
   microphone: "default",
   camera: null,
   bubble: true,
+  bubbleSize: "medium",
   systemAudio: true,
   countdown: true,
   openWhenDone: true,

@@ -36,6 +36,15 @@
 .is-paused .dot {
   background: var(--edge-print-dim);
 }
+.meter {
+  width: var(--space-10);
+  height: var(--control-small);
+  border: none;
+}
+button.is-off {
+  color: var(--record);
+  text-decoration: line-through;
+}
 .clock {
   min-width: var(--sheet-number-width);
   font-family: var(--font-mono);
@@ -105,6 +114,16 @@ button:focus-visible {
   background: var(--media-letterbox);
   cursor: grab;
   touch-action: none;
+}
+.bubble[data-size="small"] {
+  width: var(--evidence-thumb-width);
+  height: var(--evidence-thumb-width);
+}
+.bubble[data-size="large"] {
+  width: var(--dialog-width);
+  height: var(--dialog-width);
+  max-width: 50vw;
+  max-height: 50vw;
 }
 .bubble iframe {
   width: 100%;

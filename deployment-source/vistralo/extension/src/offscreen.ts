@@ -12,7 +12,17 @@ const OWN_ORIGIN = chrome.runtime.getURL("");
 
 let snapshot: Snapshot | null = null;
 let options: StartOptions | null = null;
-let media: { video: MediaStream; microphone: MediaStream | null; context: AudioContext | null; recorded: MediaStream } | null = null;
+let media: {
+  video: MediaStream;
+  microphone: MediaStream | null;
+  context: AudioContext | null;
+  recorded: MediaStream;
+  /** Silences the microphone in the recording without stopping it. */
+  micGain: GainNode | null;
+  /** Reads the microphone before the mute, so the meter still shows speech while muted. */
+  micLevel: AnalyserNode | null;
+} | null = null;
+let meter: ReturnType<typeof setInterval> | undefined;
 let recorder: MediaRecorder | null = null;
 let intent: "save" | "restart" | "cancel" = "save";
 let writes: Promise<unknown> = Promise.resolve();
@@ -98,6 +108,8 @@ async function acquire(request: Extract<EngineRequest, { type: "begin" }>) {
   const sourceAudio = video.getAudioTracks();
   const micTrack = microphone?.getAudioTracks()[0] ?? null;
   let context: AudioContext | null = null;
+  let micGain: GainNode | null = null;
+  let micLevel: AnalyserNode | null = null;
   const recorded = new MediaStream(video.getVideoTracks());
   if (sourceAudio.length || micTrack) {
     context = new AudioContext();
@@ -110,20 +122,73 @@ async function acquire(request: Extract<EngineRequest, { type: "begin" }>) {
       if (opts.mode === "tab") sound.connect(context.destination);
     }
     // The microphone is mixed in but never played back, so the person does not hear themselves.
-    if (micTrack) context.createMediaStreamSource(new MediaStream([micTrack])).connect(mix);
+    if (micTrack) {
+      const voice = context.createMediaStreamSource(new MediaStream([micTrack]));
+      micGain = context.createGain();
+      micLevel = context.createAnalyser();
+      micLevel.fftSize = 1024;
+      voice.connect(micLevel);
+      voice.connect(micGain).connect(mix);
+    }
     recorded.addTrack(mix.stream.getAudioTracks()[0]);
     if (context.state === "suspended") await context.resume().catch(() => {});
   }
-  return { video, microphone, context, recorded };
+  return { video, microphone, context, recorded, micGain, micLevel };
+}
+
+/** Sends the microphone's level ten times a second to the popup and the page bar's meter frame. */
+function startMeter() {
+  clearInterval(meter);
+  const analyser = media?.micLevel;
+  if (!analyser) return;
+  const samples = new Uint8Array(analyser.fftSize);
+  meter = setInterval(() => {
+    analyser.getByteTimeDomainData(samples);
+    let sum = 0;
+    for (const value of samples) sum += ((value - 128) / 128) ** 2;
+    const level = Math.min(1, Math.sqrt(sum / samples.length) * 4);
+    void chrome.runtime.sendMessage({ to: "meter", level: Math.round(level * 100) / 100, muted: !!snapshot?.muted }).catch(() => {});
+  }, 100);
 }
 
 function release() {
+  clearInterval(meter);
   cancelCount?.();
   if (media) {
     for (const stream of [media.video, media.microphone, media.recorded]) stream?.getTracks().forEach((t) => t.stop());
     if (media.context && media.context.state !== "closed") void media.context.close();
   }
   media = null;
+}
+
+/**
+ * Resolves once the source delivers its first frame, or after `ms`. A camera can take a few
+ * seconds to warm up; a recorder started before then can stop with nothing in it. The frame is
+ * read from a copy of the track: an offscreen document is never painted, so a <video> would not do.
+ */
+async function firstFrame(stream: MediaStream, ms: number) {
+  const source = stream.getVideoTracks()[0];
+  if (!source) return false;
+  const copy = source.clone();
+  const Processor = (globalThis as { MediaStreamTrackProcessor?: new (init: { track: MediaStreamTrack }) => { readable: ReadableStream<{ close(): void }> } }).MediaStreamTrackProcessor;
+  if (!Processor) {
+    copy.stop();
+    return true;
+  }
+  const reader = new Processor({ track: copy }).readable.getReader();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const frame = await Promise.race([
+      reader.read(),
+      new Promise<null>((resolve) => (timer = setTimeout(() => resolve(null), ms))),
+    ]);
+    if (frame && !frame.done) frame.value.close();
+    return !!frame && !frame.done;
+  } finally {
+    clearTimeout(timer);
+    void reader.cancel().catch(() => {});
+    copy.stop();
+  }
 }
 
 function countIn(ms: number) {
@@ -184,6 +249,9 @@ async function recordTake() {
     const total = bytes;
     writes = writes
       .then(() => putChunk(id, take, n, event.data))
+      // Every few seconds the stored session learns its length, so a take cut off by a crash
+      // still shows roughly how long it is.
+      .then(() => (n % 2 === 1 && snapshot ? updateProgress(id, take, total) : undefined))
       .then(() => apply({ type: "bytes", at: now(), bytes: total }))
       .catch((failure: unknown) => {
         writeFailed = failure instanceof Error ? failure : new Error(String(failure));
@@ -209,6 +277,12 @@ async function recordTake() {
   };
   capture.start(SLICE_MS);
   await apply({ type: "started", at: now() });
+}
+
+async function updateProgress(id: string, take: number, bytes: number) {
+  const kept = await getSession(id);
+  if (kept && kept.take === take && kept.state === "recording")
+    await putSession({ ...kept, durationMs: snapshot ? elapsed(snapshot, now()) : kept.durationMs, bytes });
 }
 
 /** Stops the recorder and ends the take even if Chrome never reports that it stopped. */
@@ -243,6 +317,13 @@ async function afterStop(capture: MediaRecorder, take: number) {
     return;
   }
   const s = snapshot!;
+  if (!s.bytes) {
+    // Nothing reached storage: an empty file would only look like a recording.
+    await deleteSession(id).catch(() => {});
+    await apply({ type: "fail", at: now(), error: "No video was captured. Try again; if it happens again, choose another camera or screen." });
+    await toBackground({ type: "finished", sessionId: id, open: false });
+    return;
+  }
   const final: StoredSession = { ...kept, take, durationMs: s.elapsedMs, bytes: s.bytes, state: "complete" };
   await putSession(final);
   await dropChunks(id, take).catch(() => {});
@@ -263,6 +344,12 @@ function control(action: ControlAction) {
       .catch(() => {})
       .then(() => apply({ type: "cancel", at: now() }))
       .then(() => toBackground({ type: "finished", sessionId: id, open: false }));
+    return;
+  }
+  if (action === "mute" || action === "unmute") {
+    if (!media?.micGain) return;
+    media.micGain.gain.value = action === "mute" ? 0 : 1;
+    void apply({ type: action, at: now() });
     return;
   }
   if (!capture || capture.state === "inactive") return;
@@ -318,6 +405,16 @@ async function begin(request: Extract<EngineRequest, { type: "begin" }>) {
     if (snapshot && (snapshot.phase === "recording" || snapshot.phase === "paused"))
       void toBackground({ type: "snapshot", snapshot: { ...snapshot, error: "The microphone was disconnected. The rest of this recording has no voice.", updatedAt: now() } });
   });
+  startMeter();
+  // A camera can take seconds to warm up. A tab or screen sends its picture at once, and a still
+  // page sends no second frame until something changes, so only the camera is waited for.
+  if (request.options.mode === "camera" && !(await firstFrame(media.video, 8000)) && media) {
+    const id = snapshot.id;
+    release();
+    await apply({ type: "fail", at: now(), error: "The camera or screen sent no picture. Check that no other app is using it, then try again." });
+    await toBackground({ type: "finished", sessionId: id, open: false });
+    return;
+  }
   await recordTake();
 }
 
