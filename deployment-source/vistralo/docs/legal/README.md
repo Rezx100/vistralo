@@ -28,7 +28,7 @@ Three facts in these drafts are true of the code but have to be confirmed in pro
 
 1. Narration runs on the customer's own keys only if the production worker has no `OPENAI_API_KEY` or `HEYGEN_API_KEY` in its own environment. The worker reads its environment first (`scripts/local-admin-worker.cjs`).
 2. The database rules in production match the migrations. `docs/SCHEMA-DRIFT.md` records where they are known to differ.
-3. The share page described is the one in `supabase/functions/_shared/share-page.ts`, which is live only after the `vistralo-share` function is deployed.
+3. The share page described is the app's `/watch` page (`web/share/watch.ts`). It works only once the app change that adds it is deployed and the `vistralo-share` function from the same change is deployed with it.
 
 ## Product data map (cloud app, 29 September 2026)
 

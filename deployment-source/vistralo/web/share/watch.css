@@ -1,0 +1,119 @@
+/* The page a share link opens (/watch). Every value comes from tokens.css; the page follows the
+   device's light or dark setting. Media sits in the black film edge, as everywhere else. */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+  color: var(--fg-1);
+  font-family: var(--font-family);
+  font-size: var(--font-card);
+  line-height: var(--line-card);
+}
+a { color: var(--accent-soft); }
+a:focus-visible, video:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+.watch-bar, .watch-main, .watch-foot {
+  width: 100%;
+  max-width: var(--detail-max);
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+}
+.watch-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-block: var(--space-4);
+}
+.watch-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-1);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-display);
+  font-weight: var(--weight-display);
+  font-size: var(--font-section);
+  line-height: var(--line-section);
+}
+.watch-brand svg { width: var(--icon-size); height: var(--icon-size); fill: currentColor; }
+.watch-edge {
+  margin: 0;
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-edge);
+  font-weight: var(--weight-edge);
+  font-size: var(--font-edge);
+  line-height: var(--line-edge);
+  letter-spacing: var(--tracking-edge);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+}
+.watch-main { flex: 1; padding-block: var(--space-6) var(--space-16); }
+.watch-main h1 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-display);
+  font-weight: var(--weight-display);
+  font-size: var(--font-title);
+  line-height: var(--line-title);
+  letter-spacing: var(--tracking-title);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.watch-status { color: var(--fg-2); }
+.watch-frame {
+  margin-block: var(--space-6) var(--space-3);
+  padding: var(--frame-edge);
+  border-radius: var(--radius-frame);
+  background: var(--rebate);
+}
+.watch-frame video {
+  display: block;
+  width: 100%;
+  max-height: 78vh;
+  border-radius: var(--frame-inner-radius);
+  background: var(--rebate);
+}
+.watch-note { margin: 0 0 var(--space-2); color: var(--fg-2); font-size: var(--font-body); line-height: var(--line-body); }
+.watch-get { margin: var(--space-4) 0 0; font-size: var(--font-body); line-height: var(--line-body); }
+.watch-brief {
+  max-width: 72ch;
+  margin-top: var(--space-10);
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--divider);
+  overflow-wrap: anywhere;
+}
+.watch-brief h2 { margin: var(--space-8) 0 var(--space-2); font-size: var(--font-section); line-height: var(--line-section); }
+.watch-brief h3, .watch-brief h4 { margin: var(--space-6) 0 var(--space-1); font-size: var(--font-card); line-height: var(--line-card); }
+.watch-brief p, .watch-brief ul, .watch-brief ol { margin: 0 0 var(--space-4); color: var(--fg-2); }
+.watch-brief li { margin-bottom: var(--space-1); }
+.watch-brief code, .watch-brief pre {
+  font-family: var(--font-mono);
+  font-size: var(--font-body);
+  background: var(--bg-card);
+  border: var(--border-width) solid var(--divider);
+  border-radius: var(--radius-frame);
+}
+.watch-brief code { padding: 0 var(--space-1); }
+.watch-brief pre { padding: var(--space-3); overflow: auto; white-space: pre-wrap; }
+.watch-gone { max-width: 56ch; padding-top: 12vh; }
+.watch-gone p { color: var(--fg-2); }
+.watch-foot {
+  padding-block: var(--space-6);
+  border-top: var(--border-width) solid var(--divider);
+  color: var(--fg-3);
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+}
+.watch-foot p { margin: 0 0 var(--space-1); }
+@media (forced-colors: active) {
+  .watch-frame { border: var(--border-width) solid CanvasText; }
+}

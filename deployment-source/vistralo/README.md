@@ -42,7 +42,11 @@ Run only one worker.
 
 ## Share page
 
-A share link opens the Edge Function `supabase/functions/vistralo-share`. Its HTML is built in `supabase/functions/_shared/share-page.ts`, which `tests/share-page.test.cjs` and `npm run test:web:a11y` exercise. The page has no script; its Content Security Policy allows one stylesheet by hash and video from Supabase storage. Anyone with a link may open it, so deploy the function without token checks:
+A share link is `https://app.vistralo.com/watch#<token>`. The token sits in the fragment, so the browser never sends it to Vercel. The page (`web/share/watch.ts`, built to `watch.html`, `watch.js` and `watch.css`) is one small script, not the React app. It asks the Edge Function `supabase/functions/vistralo-share` for the link's content as JSON and draws it.
+
+The function does not serve the page itself because Supabase's gateway turns any HTML a function returns on `*.supabase.co` into plain text under a sandbox policy. A browser that opens a function address directly, which is what every link made before `/watch` looks like, is redirected to `/watch`. `VISTRALO_SHARE_ORIGIN`, an optional function secret, changes where that redirect goes, for testing a preview.
+
+What a link may show is worked out in `supabase/functions/_shared/share-page.ts`, which both sides use; `tests/share-page.test.cjs` and `npm run test:web:a11y` exercise it. Anyone with a link may open it, so deploy the function without token checks, and deploy it together with the app change that adds `/watch`:
 
 ```sh
 supabase functions deploy vistralo-share --no-verify-jwt

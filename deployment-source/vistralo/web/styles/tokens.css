@@ -21,6 +21,8 @@
   color-scheme: light;
   --font-family: Inter, "Segoe UI Variable", "Segoe UI", sans-serif;
   --font-display: Archivo, Inter, "Segoe UI Variable", "Segoe UI", sans-serif;
+  /* Code in a Visual brief. */
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
   --font-caption: 12px;
   --font-label: 13px;
   --font-body: 14px;
