@@ -6,7 +6,7 @@ Operator Dynamix LTD, Mirpur 12, Eastern Housing, Road10, House 123, 2nd Floor, 
 
 ## In one paragraph
 
-Vistralo's narration is written by an OpenAI model and spoken by a HeyGen voice. Both run on API keys from your own accounts with those companies. Nothing is sent to either of them until you start a job that needs it. Talk-throughs recorded with your own voice, trimming, and plain uploads never go to an AI provider.
+Vistralo's narration is written by an OpenAI model and spoken by a HeyGen voice. On Pro and Studio they run on Vistralo's own accounts with those companies, unless you have saved your own keys. On Free they run on API keys from your own accounts. Nothing is sent to either of them until you start a job that needs it. Talk-throughs recorded with your own voice, trimming, and plain uploads never go to an AI provider.
 
 ## What is sent to OpenAI, and when
 
@@ -41,7 +41,7 @@ To stop Vistralo using a key, replace it in Settings or revoke it in the provide
 
 ## Cost
 
-OpenAI and HeyGen bill you directly. The cost limit in Settings is checked against Vistralo's own estimate before a provider is called; it cannot guarantee what the provider charges. A request that fails without a clear answer is not sent again automatically, so that you are not charged twice for one job.
+When your own keys are used, OpenAI and HeyGen bill you directly, and the cost limit you set in Settings is checked against Vistralo's own estimate before a provider is called; it cannot guarantee what the provider charges. When the included keys are used, Vistralo pays the providers and applies its own limit per job, which your setting can lower but not raise. A request that fails without a clear answer is not sent again automatically, so that you are not charged twice for one job.
 
 ## What the AI gets wrong
 
@@ -62,7 +62,7 @@ A narrated walkthrough is spoken by a synthetic voice. The page a share link ope
 ## Facts to check before publishing
 
 1. Read `src/providers.cjs` and `scripts/local-admin-worker.cjs` again on the day of publication and correct anything above that has changed, especially which frames are sent and whether audio ever is.
-2. Production has no `OPENAI_API_KEY` or `HEYGEN_API_KEY` in the worker's own environment. The worker prefers those over a customer's keys, and if they are set this page's central claim is false.
+2. The included keys are used only for the plans marked `aiIncluded` in `web/billing/plans.json` (Pro and Studio) and the owner's account, and a customer's own saved keys always come first (`src/included-ai.cjs`). The worker no longer reads `OPENAI_API_KEY` or `HEYGEN_API_KEY`; its included keys are `VISTRALO_INCLUDED_*`.
 3. The default voice's ownership and consent.
 4. Both providers' current API data terms, linked and summarised in their own words with the date checked.
 5. The working copies the worker keeps on its server: where, and for how long. `{{WORKER_WORKING_COPY_RETENTION}}`

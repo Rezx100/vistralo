@@ -17,7 +17,7 @@ Decide each of these and write the answer in plain words. The bracketed text is 
 - **Changing plan part-way through a period.** The app switches plans straight away and Paddle charges or credits the difference for the rest of the period (`prorated_immediately`). Say that here so a credit is not mistaken for a refund.
 - **Cancelling.** Cancelling stops the next renewal. The plan stays active until the end of the period already paid for, and that period is not refunded unless one of the rules above applies. `{{CONFIRM}}`
 - **Service faults.** `{{RULE_FOR_OUTAGES_OR_FAILED_JOBS}}`. A failed or cancelled AI walkthrough does not use up the month's allowance (the app gives the place back automatically), which may be all that needs saying.
-- **Charges by other companies.** AI narration runs on the customer's own OpenAI and HeyGen accounts. Those providers bill the customer directly and Vistralo cannot refund their charges.
+- **Charges by other companies.** On Free, and for anyone who saves their own keys, AI narration runs on the customer's own OpenAI and HeyGen accounts. Those providers bill the customer directly and Vistralo cannot refund their charges. Narration included in Pro and Studio is part of the plan's price and has no separate charge.
 
 ## Rights that cannot be reduced
 

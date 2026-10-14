@@ -12,9 +12,11 @@ Operator Dynamix LTD, Mirpur 12, Eastern Housing, Road10, House 123, 2nd Floor, 
 | Vercel | Hosts the web app at app.vistralo.com and the website at vistralo.com | Requests to those sites, including IP address and browser details in its logs. It does not store customer content | `{{VERCEL_ENTITY}}`, `{{REGIONS}}` | `{{SAFEGUARD}}` |
 | `{{WORKER_HOST}}` | The server that runs the processing worker | A working copy of a project's media while a job runs, and the worker's logs | `{{ENTITY_AND_COUNTRY}}` | `{{SAFEGUARD}}` |
 
-## Companies the customer connects with their own account
+## OpenAI and HeyGen
 
-Narration runs on API keys from the customer's own OpenAI and HeyGen accounts. Vistralo's worker makes the requests, but under the customer's agreement with each company.
+On Pro and Studio, narration runs on Vistralo's own OpenAI and HeyGen accounts, which makes both of them Vistralo's subprocessors for those plans: OpenAI receives frames from the recording and, for website projects, notes from the page's code; HeyGen receives the approved script. `{{OPENAI_ENTITY_REGION_SAFEGUARD}}`, `{{HEYGEN_ENTITY_REGION_SAFEGUARD}}`
+
+On Free, and for any customer who saves their own keys, narration runs on the customer's own accounts. Vistralo's worker makes the requests, but under the customer's agreement with each company.
 
 | Company | When data is sent | What is sent | Classification |
 | --- | --- | --- | --- |

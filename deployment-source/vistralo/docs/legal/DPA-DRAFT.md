@@ -16,7 +16,7 @@ It does not cover data for which Vistralo is itself the controller: the customer
 | --- | --- |
 | Subject matter | Storing the customer's recordings, videos, screenshots and website captures, and turning them into narrated walkthroughs and Visual briefs |
 | Duration | For as long as the customer has an account, and afterwards until deletion under section 9 |
-| Nature and purpose | Storage; extracting still pictures; reading a public web page's code; sending pictures and text to the customer's own AI providers when the customer asks for narration; producing audio and video; serving the result to the customer and to people who open a share link the customer created |
+| Nature and purpose | Storage; extracting still pictures; reading a public web page's code; sending pictures and text to OpenAI and HeyGen when the customer asks for narration, on Vistralo's accounts for plans that include it or on the customer's own accounts otherwise; producing audio and video; serving the result to the customer and to people who open a share link the customer created |
 | Kinds of personal data | Whatever is visible or audible in what the customer records or uploads. Typically names, email addresses, profile pictures, messages and on-screen account details; voices in a talk-through. Vistralo does not ask for any category of data and does not classify what it receives |
 | Special categories | None are requested. The customer must not record special-category data unless it has a lawful basis to and has assessed sending it to its AI providers. `{{COUNSEL}}` |
 | People concerned | People who appear in the customer's recordings, uploads or captured pages |
@@ -39,7 +39,7 @@ The customer authorises Vistralo to use the companies listed in the first table 
 
 Vistralo will give notice of a new or replacement subprocessor `{{NOTICE_PERIOD}}` in advance by `{{CHANNEL}}`. The customer may object on reasonable data protection grounds within that period. `{{WHAT_HAPPENS_IF_THE_OBJECTION_CANNOT_BE_RESOLVED}}`
 
-OpenAI and HeyGen are engaged by the customer under the customer's own accounts and API keys. Vistralo sends data to them only when the customer starts a job that needs it. `{{COUNSEL: CONFIRM THEY ARE THE CUSTOMER'S PROCESSORS AND NOT VISTRALO'S SUBPROCESSORS, OR MOVE THEM INTO THE AUTHORISED LIST}}`
+On plans that include AI narration (Pro and Studio), OpenAI and HeyGen are engaged by Vistralo under Vistralo's own accounts and are Vistralo's subprocessors. On Free, or when a customer saves their own keys, they are engaged by the customer under the customer's own accounts. Vistralo sends data to them only when the customer starts a job that needs it. `{{COUNSEL: CONFIRM THE TWO ROLES, AND ADD OPENAI AND HEYGEN TO THE AUTHORISED LIST FOR THE INCLUDED PLANS}}`
 
 ## 7. Requests from individuals
 

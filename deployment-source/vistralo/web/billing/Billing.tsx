@@ -255,6 +255,7 @@ const limitRows = (plan: Plan): Array<[string, string]> => [
     plan.maxSourceMinutes === null ? "No limit" : `${plan.maxSourceMinutes} minutes`,
   ],
   ["Share links last", `Up to ${plan.shareDays} days`],
+  ["AI narration", plan.aiIncluded ? "Included" : "Your own OpenAI and HeyGen keys"],
 ];
 
 function LegalLinks() {
@@ -398,8 +399,8 @@ export function PricingPage({
       {blocked && !onSignIn && <p className="caption">{blocked}</p>}
       <p className="caption plans-footnote">
         Payments are taken by Paddle, the merchant of record for Vistralo. Paddle adds any tax for
-        your country at checkout and sends the receipt. AI narration uses your own OpenAI and HeyGen
-        keys, which those providers bill separately.
+        your country at checkout and sends the receipt. Pro and Studio include AI narration. On Free,
+        narration runs on your own OpenAI and HeyGen keys, which those providers bill separately.
       </p>
       <LegalLinks />
       {onBack && (

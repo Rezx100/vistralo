@@ -12,7 +12,8 @@ const { composeNarrated, composeWalkthrough } = require('../src/editor.cjs');
 const { detectViewports } = require('../src/viewports.cjs');
 const { readBuild, matchViewports, writeBrief, publicUrl, viewportFor } = require('../src/buildread.cjs');
 const { KEY_ID, loadKeyPair, exportPublicKey, decrypt } = require('./worker-secrets.cjs');
-const { loadEntitlement, checkQuota, checkDuration } = require('../src/entitlements.cjs');
+const { loadEntitlement, loadPlan, checkQuota, checkDuration } = require('../src/entitlements.cjs');
+const { includedPlans, includedKeys, chooseKeys } = require('../src/included-ai.cjs');
 
 // The analysis returns a full brief; narration is the part meant to be spoken.
 function narrationFrom(markdown) {
@@ -74,20 +75,26 @@ async function start() {
     algorithm: 'RSA-OAEP-256',
     updated_at: new Date().toISOString(),
   }));
-  // Providers reads keys through read(); here they come from the owner's encrypted settings.
+  // Providers reads keys through read(). A customer's own saved keys come first; plans that
+  // include AI narration (and this account, the owner's) fall back to Vistralo's keys. See
+  // src/included-ai.cjs.
+  const PLANS_WITH_AI = includedPlans();
+  const HOUSE = includedKeys();
+  const workerAccount = signed.data.user.id;
+  console.log(`Included AI narration for plans: ${[...PLANS_WITH_AI].join(', ') || 'none'}; included keys ${HOUSE.openai && HOUSE.heygen ? 'set' : 'NOT set'}`);
   const settingsFor = async (owner) => {
     const rows = unwrap(await db.rpc('vistralo_worker_secrets', { target: owner }));
     const row = rows?.[0];
-    const fromEnv = (name) => (typeof process.env[name] === 'string' ? process.env[name].trim() : '');
-    const openai = fromEnv('OPENAI_API_KEY') || (row && decrypt(keys.privateKey, row.openai_cipher));
-    const heygen = fromEnv('HEYGEN_API_KEY') || (row && decrypt(keys.privateKey, row.heygen_cipher));
-    assert(openai || heygen, 'Add your provider keys in Settings before running AI narration');
-    return {
-      openai,
-      heygen,
-      voiceId: fromEnv('HEYGEN_VOICE_ID') || (row && row.voice_id),
-      cap: Number((row && row.cost_cap_usd) || fromEnv('VISTRALO_COST_CAP_USD') || 1),
+    const own = {
+      openai: (row && decrypt(keys.privateKey, row.openai_cipher)) || '',
+      heygen: (row && decrypt(keys.privateKey, row.heygen_cipher)) || '',
+      voiceId: (row && row.voice_id) || '',
+      cap: Number(row && row.cost_cap_usd) || 0,
     };
+    const included = owner === workerAccount || PLANS_WITH_AI.has(await loadPlan(db, owner));
+    const settings = chooseKeys({ own, included, house: HOUSE });
+    if (!settings.openai && !settings.heygen) settings.need('openai');
+    return settings;
   };
   const providersFor = (settings) => new Providers(service.store, {
     read: () => ({ openai: settings.openai, heygen: settings.heygen, voice: settings.voiceId }),
@@ -102,7 +109,7 @@ async function start() {
 
   async function draftScript(job, p, nativeId, manifest) {
     const settings = await settingsFor(job.owner_id);
-    assert(settings.openai, 'Add an OpenAI API key in Settings to draft narration');
+    settings.need('openai');
     // screenScript, not analyze: analyze writes an engineering brief ("This
     // document outlines...") which reads as nonsense when spoken aloud.
     const frames = spread(
@@ -128,7 +135,7 @@ async function start() {
 
   async function narrate(job, p, nativeId, nativeRoot, files) {
     const settings = await settingsFor(job.owner_id);
-    assert(settings.heygen, 'Add a HeyGen API key in Settings to generate narration');
+    settings.need('heygen');
     assert(p.data.scriptApproved === true, 'Approve the narration script before generating audio');
     const script = String(p.data.script || '').trim();
     assert(script.length > 0 && script.length <= 5000, 'Narration script must be 1–5000 characters');
@@ -188,8 +195,8 @@ async function start() {
     const duration = await service.media.measureDuration(sourcePath);
     checkDuration(entitlement, duration);
     const settings = await settingsFor(job.owner_id);
-    assert(settings.openai, 'Add an OpenAI API key in Settings to draft narration');
-    assert(settings.heygen, 'Add a HeyGen API key in Settings to generate narration');
+    settings.need('openai');
+    settings.need('heygen');
     const picture = (await service.media.probe(sourcePath)).streams.find((s) => s.codec_type === 'video') || {};
     // With a website address, the live site is read in the background while the recording is scanned.
     // A failed read only means every build claim stays "likely"; it never fails the walkthrough.

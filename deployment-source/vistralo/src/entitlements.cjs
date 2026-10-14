@@ -19,6 +19,16 @@ async function loadEntitlement(db, owner) {
   return result.data && result.data.enforce ? result.data : null;
 }
 
+/** The owner's plan id whether or not limits are on, for what the plan includes. "free" without billing. */
+async function loadPlan(db, owner) {
+  const result = await db.rpc('vistralo_worker_entitlement', { target: owner });
+  if (result.error) {
+    if (result.error.code === 'PGRST202') return 'free';
+    throw Error(`Could not read the owner's plan: ${result.error.message}`);
+  }
+  return (result.data && result.data.plan) || 'free';
+}
+
 const where = 'Choose a larger plan in Settings, under Billing.';
 
 /** The job being checked was already counted when it was queued, so only going over is a refusal. */
@@ -38,4 +48,4 @@ function checkDuration(entitlement, seconds) {
   throw Error(`This recording is ${minutes} minutes long, and the ${entitlement.planName} plan narrates up to ${cap}. Trim it, or ${where.charAt(0).toLowerCase()}${where.slice(1)}`);
 }
 
-module.exports = { COUNTED, loadEntitlement, checkQuota, checkDuration };
+module.exports = { COUNTED, loadEntitlement, loadPlan, checkQuota, checkDuration };
