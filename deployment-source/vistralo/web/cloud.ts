@@ -4,7 +4,7 @@ import { uuid } from './id';
 import { abortIfNeeded, checksum } from './checksum';
 import { posterFrame } from './poster';
 import { billingConfig } from './billing/config';
-import { freeState, limitReached, planLimit, type BillingState, type LimitKind } from './billing/plans';
+import { PLANS, freeState, limitReached, planLimit, type BillingState, type LimitKind } from './billing/plans';
 
 declare const VISTRALO_SUPABASE_URL: string;
 declare const VISTRALO_SUPABASE_KEY: string;
@@ -51,6 +51,17 @@ const storageEndpoint = () => {const u=new URL(VISTRALO_SUPABASE_URL);if(/^[a-z0
 /** Signed in, but this account has no workspace: sign-up is closed, or access was never granted. */
 export class NoWorkspaceError extends Error {constructor(message:string){super(message);this.name='NoWorkspaceError';}}
 let completingSignup:{user:string,done:Promise<void>}|null=null;
+/**
+ * Whether this account's AI narration runs on Vistralo's own keys: the owner's account, or a plan
+ * marked aiIncluded in plans.json. The worker applies the same rule (src/included-ai.cjs).
+ */
+async function aiIncluded(role:string):Promise<boolean>{
+  if(role==='admin')return true;
+  const {data,error}=await required().rpc('vistralo_billing_state');
+  if(error||!data)return false;
+  return PLANS.some(plan=>plan.id===(data as {plan?:string}).plan&&plan.aiIncluded);
+}
+
 export async function cloudAccount() {
   const client=required();
   const {data}=await client.auth.getSession();
@@ -367,7 +378,7 @@ export class CloudAdapter implements WorkspaceAdapter {
       const account=await cloudAccount();
       const rows=unwrap(await required().from('vistralo_provider_settings').select('voice_id,cost_cap_usd,openai_configured,heygen_configured').eq('owner_id',account.user_id));
       const row:any=rows[0]||{};
-      return {openai:!!row.openai_configured,heygen:!!row.heygen_configured,voiceId:row.voice_id||'',cap:Number(row.cost_cap_usd??1),workerKey:!!await this.workerKey()} as T;
+      return {openai:!!row.openai_configured,heygen:!!row.heygen_configured,voiceId:row.voice_id||'',cap:Number(row.cost_cap_usd??1),workerKey:!!await this.workerKey(),included:await aiIncluded(account.role)} as T;
     }
     if(method==='providerSave'){
       const account=await cloudAccount();

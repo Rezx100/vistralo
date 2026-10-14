@@ -26,7 +26,7 @@ The terms were rewritten on 13 October 2026 to match the refund policy and to na
 
 Three facts in these drafts are true of the code but have to be confirmed in production before anything is published:
 
-1. Narration runs on the customer's own keys only if the production worker has no `OPENAI_API_KEY` or `HEYGEN_API_KEY` in its own environment. The worker reads its environment first (`scripts/local-admin-worker.cjs`).
+1. Pro and Studio narration runs on Vistralo's own OpenAI and HeyGen keys; Free brings its own; a customer's own saved keys always come first (`src/included-ai.cjs`, decided 14 October 2026). The terms, the AI disclosure, the DPA, the subprocessors list and the refund policy say so; change them together if the plans that include AI change.
 2. The database rules in production match the migrations. `docs/SCHEMA-DRIFT.md` records where they are known to differ.
 3. The share page described is the app's `/watch` page (`web/share/watch.ts`). It works only once the app change that adds it is deployed and the `vistralo-share` function from the same change is deployed with it.
 

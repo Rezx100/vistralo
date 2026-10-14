@@ -10,14 +10,20 @@ type Settings = {
   voiceId: string;
   cap: number;
   workerKey: boolean;
+  /** The plan includes AI narration on Vistralo's own keys, so the account's own keys are optional. */
+  included?: boolean;
 };
 
-/** Whether a key is on file. The key itself is never read back, so this is all the page can show. */
-function KeyState({ saved }: { saved: boolean }) {
+/**
+ * Whether a key is on file. The key itself is never read back, so this is all the page can show.
+ * On a plan that includes AI narration, no key of one's own means the included one is used.
+ */
+function KeyState({ saved, included }: { saved: boolean; included: boolean }) {
+  const label = included ? (saved ? "Your key" : "Included") : saved ? "Saved" : "Not added";
   return (
-    <span className={`key-state ${saved ? "is-saved" : ""}`.trim()}>
-      <Icon name={saved ? "checkCircle" : "lock"} />
-      {saved ? "Saved" : "Not added"}
+    <span className={`key-state ${saved || included ? "is-saved" : ""}`.trim()}>
+      <Icon name={saved || included ? "checkCircle" : "lock"} />
+      {label}
     </span>
   );
 }
@@ -76,6 +82,14 @@ export function ProviderSettings({
     }
   }
 
+  const included = !!settings?.included;
+  const keyLabel = (name: string, saved: boolean) =>
+    included
+      ? `Your own ${name} key (optional)`
+      : saved
+        ? `Replace the ${name} key`
+        : `${name} API key`;
+
   if (!settings && !error)
     return (
       <p className="caption" role="status">
@@ -85,10 +99,19 @@ export function ProviderSettings({
 
   return (
     <form className="sheet-stack provider-settings" onSubmit={save}>
-      <p>
-        Vistralo writes each walkthrough’s narration with OpenAI and speaks it with HeyGen,
-        using keys from your own accounts. Each provider bills you for what you use.
-      </p>
+      {included ? (
+        <p>
+          Your plan includes AI narration. Vistralo writes it with OpenAI and speaks it with
+          HeyGen on its own accounts, so you need no keys. To run narration on your own
+          accounts instead, add your keys below.
+        </p>
+      ) : (
+        <p>
+          On the Free plan, Vistralo writes the narration with OpenAI and speaks it with HeyGen
+          using keys from your own accounts, and each provider bills you for what you use. Pro
+          and Studio include AI narration with no keys needed.
+        </p>
+      )}
       {settings && !settings.workerKey && (
         <p className="provider-notice" role="status">
           <Icon name="warning" />
@@ -105,10 +128,10 @@ export function ProviderSettings({
                 OpenAI
                 <small>Looks at each screen and drafts the line spoken over it.</small>
               </span>
-              <KeyState saved={!!settings?.openai} />
+              <KeyState saved={!!settings?.openai} included={included} />
             </div>
             <Field
-              label={settings?.openai ? "Replace the OpenAI key" : "OpenAI API key"}
+              label={keyLabel("OpenAI", !!settings?.openai)}
               hint={settings?.openai ? "Leave empty to keep the saved key." : undefined}
             >
               <input
@@ -127,10 +150,10 @@ export function ProviderSettings({
                 HeyGen
                 <small>Speaks the approved script in the chosen voice.</small>
               </span>
-              <KeyState saved={!!settings?.heygen} />
+              <KeyState saved={!!settings?.heygen} included={included} />
             </div>
             <Field
-              label={settings?.heygen ? "Replace the HeyGen key" : "HeyGen API key"}
+              label={keyLabel("HeyGen", !!settings?.heygen)}
               hint={settings?.heygen ? "Leave empty to keep the saved key." : undefined}
             >
               <input
@@ -146,7 +169,7 @@ export function ProviderSettings({
         <p className="provider-sealed">
           <Icon name="lock" />
           Keys are encrypted in this browser for the worker alone. Nobody can read them
-          back, including you, so a saved key is shown only as “Saved”.
+          back, including you, so a saved key is shown only as {included ? "“Your key”" : "“Saved”"}.
         </p>
       </section>
       <section className="provider-group" aria-labelledby="provider-voice-title">
@@ -164,7 +187,11 @@ export function ProviderSettings({
           <div className="provider-row">
             <Field
               label="Most a job may cost (US dollars)"
-              hint="A job whose estimate is higher is refused before anything is sent. The same request is never sent twice."
+              hint={
+                included
+                  ? "Applies to jobs on your own keys. Jobs on the included keys stay within Vistralo's own limit, which this can lower but not raise. The same request is never sent twice."
+                  : "A job whose estimate is higher is refused before anything is sent. The same request is never sent twice."
+              }
             >
               <input
                 type="number"

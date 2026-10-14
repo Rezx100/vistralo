@@ -8,7 +8,7 @@ Record a flow, upload a video or screenshots, or point at a website. Vistralo fi
 | --- | --- | --- |
 | Web app | `web/` (React, TypeScript, esbuild), bundled by `scripts/build-web.cjs` into `server-ui/` and staged by `scripts/build-cloud.cjs` into `dist-web/` | Vercel, on merge to `main` (`vercel.json`: `npm ci --ignore-scripts`, `npm run build:cloud`) |
 | Backend | Supabase: auth, bucket `vistralo-media`, tables `vistralo_projects` and `vistralo_jobs` (`supabase/migrations`), edge functions `vistralo-share`, `vistralo-paddle-webhook` and `vistralo-billing` | Supabase migrations and functions |
-| Worker | `scripts/local-admin-worker.cjs` with `src/core.cjs`, `media.cjs`, `editor.cjs`, `viewports.cjs`, `providers.cjs`, `buildread.cjs`, `walkthrough.cjs`, `server-egress.cjs`, `service.cjs`, and `scripts/worker-secrets.cjs` | Manual, see below |
+| Worker | `scripts/local-admin-worker.cjs` with `src/core.cjs`, `media.cjs`, `editor.cjs`, `viewports.cjs`, `providers.cjs`, `buildread.cjs`, `walkthrough.cjs`, `server-egress.cjs`, `service.cjs`, `entitlements.cjs`, `included-ai.cjs`, `scripts/worker-secrets.cjs` and `web/billing/plans.json` | Manual, see below |
 
 `build:cloud` needs `VISTRALO_SUPABASE_URL` and `VISTRALO_SUPABASE_PUBLISHABLE_KEY` (set in Vercel; only a publishable key may be embedded).
 
@@ -39,6 +39,23 @@ The worker runs on the VPS as systemd unit `vistralo-worker` (`deploy/vistralo-w
 4. Roll back by restoring the `.bak` files and restarting.
 
 Run only one worker.
+
+### Whose AI keys a job uses
+
+A customer's own OpenAI and HeyGen keys, saved encrypted in Settings, always come first. Without them, jobs on a plan marked `"aiIncluded": true` in `web/billing/plans.json` (Pro and Studio), and jobs on the owner's account, run on Vistralo's keys. Free jobs without their own keys are refused before anything is sent. The rule is `src/included-ai.cjs`; `tests/included-ai.test.cjs` covers it.
+
+Vistralo's keys are set in `/etc/vistralo-worker.env` (mode 600), never in Git:
+
+| Variable | Meaning |
+| --- | --- |
+| `VISTRALO_INCLUDED_OPENAI_API_KEY`, `VISTRALO_INCLUDED_HEYGEN_API_KEY` | The keys included plans use |
+| `VISTRALO_INCLUDED_HEYGEN_VOICE_ID` | The voice for included narration when the customer has not chosen one |
+| `VISTRALO_INCLUDED_COST_CAP_USD` | Most one job may spend on the included keys (default 1.00). A customer's own cap can lower it, never raise it |
+| `VISTRALO_INCLUDED_AI_PLANS` | Optional. Comma-separated plan ids that override `aiIncluded` in the plan table, for example `free,pro,studio` |
+
+To include Free later, set its `aiIncluded` to `true` in `plans.json` (which also changes the plans page, Settings and the site's pricing page) and deploy the app, the site and the worker. The worker logs which plans are included when it starts. It no longer reads `OPENAI_API_KEY` or `HEYGEN_API_KEY`: those once applied to every customer.
+
+The included keys spend Vistralo's money, so switch plan limits on (`enforce_limits`, see `docs/BILLING.md`) before paid plans are sold; without them a Pro or Studio account has no monthly cap.
 
 ## Share page
 

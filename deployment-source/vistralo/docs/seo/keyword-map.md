@@ -67,7 +67,7 @@ These are constraints on the copy, taken from `PRODUCT.md`.
 | --- | --- | --- |
 | All | Customers, logos, testimonials, usage numbers, awards | None exist |
 | All | "Compliant", "certified", SOC 2, GDPR-ready | Legal notices are unapproved drafts and nothing has been audited |
-| Home, AI walkthroughs | That narration is included in the price | It runs on the customer's own OpenAI and HeyGen keys |
+| Home, AI walkthroughs, Pricing | That narration is included on Free, or that it ever will be | Only Pro and Studio include it; Free brings its own OpenAI and HeyGen keys |
 | Pricing | That plan names, limits or prices are final | They are placeholders awaiting the owner's confirmation; the page says so until confirmed |
 | Website visual briefs | That it works on any site | Public pages only, and a claim about a library is "likely" unless the page's code proved it |
 | Narrate screenshots, use cases | Mobile recording, a browser extension, a desktop app | Web app only |

@@ -1,6 +1,6 @@
 {
   "confirmed": false,
-  "note": "Plan names, limits and prices are placeholders the owner has not confirmed. This file is the one place they are written: the app (web/billing/plans.ts), the published /plans.json and the pricing page on vistralo.com all read it. The database seeds the same limits in the billing migration, and a test fails if the two disagree. Real prices are set in Paddle; the figures here are what the test checkout and the pricing page show.",
+  "note": "Plan names, limits and prices are placeholders the owner has not confirmed. This file is the one place they are written: the app (web/billing/plans.ts), the published /plans.json and the pricing page on vistralo.com all read it. The database seeds the same limits in the billing migration, and a test fails if the two disagree. The aiIncluded field marks the plans whose AI narration runs on Vistralo's own OpenAI and HeyGen keys; the worker reads it too (src/included-ai.cjs). Real prices are set in Paddle; the figures here are what the test checkout and the pricing page show.",
   "currency": "USD",
   "plans": [
     {
@@ -12,6 +12,7 @@
       "monthlyJobs": 3,
       "maxSourceMinutes": 5,
       "shareDays": 7,
+      "aiIncluded": false,
       "testPrice": { "month": 0, "year": 0 }
     },
     {
@@ -23,6 +24,7 @@
       "monthlyJobs": 60,
       "maxSourceMinutes": 30,
       "shareDays": 30,
+      "aiIncluded": true,
       "testPrice": { "month": 12, "year": 120 }
     },
     {
@@ -34,6 +36,7 @@
       "monthlyJobs": 300,
       "maxSourceMinutes": 120,
       "shareDays": 30,
+      "aiIncluded": true,
       "testPrice": { "month": 36, "year": 360 }
     }
   ]

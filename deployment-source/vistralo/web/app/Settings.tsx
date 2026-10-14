@@ -23,7 +23,8 @@ export function usePreferences(
 
 /**
  * Settings is a page with its own address, not a window over the page: General, Profile,
- * AI narration (where the workspace uses its own provider keys) and Billing (when plans are on).
+ * AI narration (provider keys: included on Pro and Studio, the workspace's own on Free) and
+ * Billing (when plans are on).
  */
 export function SettingsPage({
   tab,

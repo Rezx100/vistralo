@@ -23,6 +23,8 @@ export interface Plan extends PlanLimits {
   name: string;
   rank: number;
   summary: string;
+  /** AI narration runs on Vistralo's own OpenAI and HeyGen keys; other plans bring their own. */
+  aiIncluded: boolean;
   /** Shown only by the test checkout. Real prices come from Paddle for the customer's country. */
   testPrice: Record<BillingInterval, number>;
 }
