@@ -141,9 +141,64 @@ async function main() {
     await page.setViewportSize({width:390, height:844});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'The project page fits a phone');
     await page.setViewportSize({width:1440, height:900});
+
+    // Trim: parts typed or marked from the player, drawn on the strip, and told apart when out of order.
+    await page.getByRole('tab', {name:'Editor', exact:true}).click();
+    await page.getByRole('heading', {name:'Trim the recording', level:2, exact:true}).waitFor();
+    const parts = page.getByRole('list', {name:'Parts to keep', exact:true});
+    await page.waitForFunction(() => document.querySelector('.trim .flow-stage video')?.readyState >= 1);
+    // Play part 1 from where it starts, pause, and take its end from the player.
+    await parts.getByLabel('Starts at (seconds)').first().fill('2');
+    await page.getByRole('button', {name:'Play part 1', exact:true}).click();
+    await page.waitForFunction(() => document.querySelector('.trim .flow-stage video').currentTime >= 3);
+    const paused = await page.evaluate(() => { const video = document.querySelector('.trim .flow-stage video'); video.pause(); return video.currentTime; });
+    await page.getByRole('button', {name:/^Use \d:\d\d as the end of part 1$/}).click();
+    assert.ok(Math.abs(Number(await parts.getByLabel('Ends at (seconds)').first().inputValue()) - paused) < 0.5, 'The end is taken from the player');
+    await parts.getByLabel('Ends at (seconds)').first().fill('5');
+    await page.getByRole('button', {name:'Add a part', exact:true}).click();
+    assert.equal(await parts.getByLabel('Starts at (seconds)').nth(1).inputValue(), '5', 'A new part starts where the last one ended');
+    await parts.getByLabel('Starts at (seconds)').nth(1).fill('4');
+    await parts.getByLabel('Ends at (seconds)').nth(1).fill('8');
+    await parts.getByText('This part starts before part 1 ends. Keep the parts in order.', {exact:true}).waitFor();
+    assert.equal(await parts.getByLabel('Starts at (seconds)').nth(1).getAttribute('aria-invalid'), 'true');
+    assert.equal(await page.locator('.trim-span').count(), 1, 'Only parts that can be saved are drawn on the strip');
+    await parts.getByLabel('Starts at (seconds)').nth(1).fill('6');
+    await page.locator('.trim-summary', {hasText:'Keeps 2 parts · 0:05 of 0:12'}).waitFor();
+    assert.equal(await page.locator('.trim-span').count(), 2);
+    await page.setViewportSize({width:390, height:844});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Trim fits a phone');
+    await page.setViewportSize({width:1440, height:900});
+    await page.getByRole('button', {name:'Remove part 2', exact:true}).click();
+    await page.locator('.trim-summary', {hasText:'Keeps 1 part · 0:03 of 0:12'}).waitFor();
+
+    // Leaving with a plan that was never saved asks first.
     await page.getByRole('navigation', {name:'Breadcrumb', exact:true}).getByRole('button', {name:'Projects', exact:true}).click();
+    await page.getByRole('dialog', {name:'Discard unsaved edits?'}).getByRole('button', {name:'Discard and leave', exact:true}).click();
     await page.locator('.project-card').first().waitFor();
     checks.push('a project opens with the player first, Share in its header, and a sheet of screens that plays from the one chosen');
+    checks.push('trim parts can be marked from the player, are drawn on a strip, and say when they are out of order');
+
+    // The Visual brief reads as a document with its sections beside it, and is edited as Markdown.
+    await page.locator('.project-card', {hasText:'Storefront design review'}).locator('.card-title').click();
+    await page.getByRole('tab', {name:'Visual brief', exact:true}).click();
+    const contents = page.getByRole('navigation', {name:'Sections of this brief', exact:true});
+    await contents.getByRole('button', {name:'Accessibility references', exact:true}).click();
+    await page.waitForFunction(() => document.activeElement?.id === 'brief-accessibility-references');
+    await page.getByRole('button', {name:'Edit', exact:true}).click();
+    await page.getByLabel('Brief in Markdown', {exact:true}).fill('# Storefront\n\n## Type\n- `Inter` for text\n- **one** accent\n\n```\n<script>alert(1)</script>\n```\n');
+    await page.getByText('Unsaved changes', {exact:true}).waitFor();
+    await page.getByRole('button', {name:'Read', exact:true}).click();
+    const doc = page.locator('.brief-doc');
+    assert.equal(await doc.locator('ul > li').count(), 2);
+    assert.equal(await doc.locator('code', {hasText:'Inter'}).count(), 1);
+    assert.equal(await doc.locator('strong', {hasText:'one'}).count(), 1);
+    assert.equal(await doc.locator('script').count(), 0, 'A brief never becomes markup');
+    assert.equal(await doc.locator('pre').innerText(), '<script>alert(1)</script>');
+    // The sample brief is left as it was: the edit is discarded on the way out.
+    await page.getByRole('navigation', {name:'Breadcrumb', exact:true}).getByRole('button', {name:'Projects', exact:true}).click();
+    await page.getByRole('dialog', {name:'Discard unsaved edits?'}).getByRole('button', {name:'Discard and leave', exact:true}).click();
+    await page.locator('.project-card').first().waitFor();
+    checks.push('the Visual brief lists its sections and renders lists and code as text, never as markup');
 
     // Settings is a page with an address, not a window over the page.
     await page.locator('.rail-footer').getByRole('button', {name:'Settings', exact:true}).click();

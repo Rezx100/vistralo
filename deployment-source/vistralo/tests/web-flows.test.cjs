@@ -30,7 +30,7 @@ test('trim planning rejects missing, non-finite, reversed, overlapping and out-o
     [{start:'',end:'1'}], [{start:'0',end:''}], [{start:'NaN',end:'1'}], [{start:'0',end:'Infinity'}],
     [{start:'-1',end:'2'}], [{start:'2',end:'2'}], [{start:'2',end:'1'}], [{start:'0',end:'10.0001'}],
     [{start:'0',end:'5'},{start:'4.9',end:'8'}], [{start:'6',end:'8'},{start:'0',end:'2'}],
-  ]) assert.throws(()=>buildClipPlan('imports/source.webm',10,clips),/Clip/);
+  ]) assert.throws(()=>buildClipPlan('imports/source.webm',10,clips),/Part \d/);
   assert.throws(()=>buildClipPlan('imports/source.webm',10,[]),/1 and 200/);
   assert.throws(()=>buildClipPlan('imports/source.webm',1000,Array.from({length:201},(_,i)=>({start:i,end:i+1}))),/1 and 200/);
 });

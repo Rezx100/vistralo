@@ -82,6 +82,12 @@
   --detail-max: 1200px;
   --settings-max: 760px;
   --sheet-number-width: 88px;
+  /* Trim: the strip that shows what is kept, and the narrowest a start or end field gets. */
+  --trim-strip-height: 32px;
+  --trim-time-width: 220px;
+  /* A brief is read at about 70 characters a line; its contents list sits beside it on wide screens. */
+  --brief-measure: 70ch;
+  --brief-contents-width: 200px;
   --rail-width: 232px;
   --rail-collapsed: 56px;
   --rail-header-height: 56px;

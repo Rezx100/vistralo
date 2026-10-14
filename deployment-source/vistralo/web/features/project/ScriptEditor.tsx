@@ -1,7 +1,12 @@
 import React from "react";
 import type { Project, WorkspaceAdapter } from "../../contracts";
+import { Button } from "../../components/Controls";
+import { Icon } from "../../components/Icon";
 import type { ProjectAction } from "./useProjectDetail";
 
+const SCRIPT_LIMIT = 5000;
+
+/** The words the AI voice will speak, checked and approved by a person before anything is paid for. */
 export function ScriptEditor({
   project,
   adapter,
@@ -23,89 +28,90 @@ export function ScriptEditor({
   dirtyScript: React.RefObject<boolean>;
   action: ProjectAction;
 }) {
+  const near = script.length > SCRIPT_LIMIT * 0.9;
   return (
-    <section className="flow-stack">
+    <section className="brief-script" aria-labelledby="brief-script-title">
       <header className="flow-heading">
         <div>
-          <h3>AI narration</h3>
+          <h3 id="brief-script-title">AI narration</h3>
           <p className="flow-muted">
             {project.data.narratedVideo
-              ? "A narrated video has been generated from this script."
-              : "Review and edit the draft before any voice is generated. Nothing is sent to the speech provider until you approve it."}
+              ? "A narrated video was made from this script. Approving a changed script makes a new one."
+              : "Check the words before a voice speaks them. Nothing goes to the voice provider until you approve."}
           </p>
         </div>
+        {scriptDirty && <span className="edge brief-unsaved">Unsaved changes</span>}
       </header>
       {project.data.scriptError && !script.trim() && (
         <p className="flow-notice" role="status">
-          The draft could not be written: {project.data.scriptError}{" "}
-          The capture and its video are unaffected. You can write
-          the narration yourself below, or fix the setting and run
-          the analysis again.
+          The draft could not be written: {project.data.scriptError} The capture and its
+          video are unaffected. Write the narration yourself below, or fix the setting and
+          run the analysis again.
         </p>
       )}
-      <label className="flow-field">
+      <label className="sr-only" htmlFor="narration-script">
         Narration script
-        <textarea
-          className="field flow-brief-editor"
-          value={script}
-          maxLength={5000}
-          placeholder="Write the narration, or re-run the analysis to draft one."
-          onChange={(event) => {
-            setScript(event.target.value);
-            dirtyScript.current = true;
-            setScriptDirty(true);
-          }}
-          disabled={processing}
-          spellCheck
-        />
       </label>
-      <p className="flow-caption flow-muted">
-        {script.length} of 5000 characters. Generating the voice
-        is a paid request and must fit the per-job cost cap in
-        Preferences.
-      </p>
-      <div className="flow-actions">
-        <button
-          className="button"
-          disabled={processing || !scriptDirty}
-          onClick={() =>
-            void action(
-              "Saving script",
-              async () => {
-                await adapter.rpc("scriptSave", {
-                  id: project.id,
-                  text: script,
-                });
-                dirtyScript.current = false;
-                setScriptDirty(false);
-              },
-              "Narration script saved.",
-            )
-          }
-        >
-          Save script
-        </button>
-        <button
-          className="button button-primary"
-          disabled={processing || !script.trim()}
-          onClick={() =>
-            void action(
-              "Generating narration",
-              async () => {
-                await adapter.rpc("narrate", {
-                  id: project.id,
-                  text: script,
-                });
-                dirtyScript.current = false;
-                setScriptDirty(false);
-              },
-              "Approved. Narration is being generated.",
-            )
-          }
-        >
-          Approve and generate narrated video
-        </button>
+      <textarea
+        id="narration-script"
+        className="brief-script-editor"
+        value={script}
+        maxLength={SCRIPT_LIMIT}
+        placeholder="Write the narration, or run the analysis again to draft one."
+        onChange={(event) => {
+          setScript(event.target.value);
+          dirtyScript.current = true;
+          setScriptDirty(true);
+        }}
+        disabled={processing}
+        aria-describedby="narration-script-note"
+        spellCheck
+      />
+      <div className="flow-actions brief-edit-actions">
+        <span id="narration-script-note" className={`edge brief-count ${near ? "is-near" : ""}`.trim()}>
+          {script.length.toLocaleString()} of {SCRIPT_LIMIT.toLocaleString()} characters
+        </span>
+        <div className="flow-actions">
+          <Button
+            disabled={processing || !scriptDirty}
+            onClick={() =>
+              void action(
+                "Saving script",
+                async () => {
+                  await adapter.rpc("scriptSave", { id: project.id, text: script });
+                  dirtyScript.current = false;
+                  setScriptDirty(false);
+                },
+                "Narration script saved.",
+              )
+            }
+          >
+            Save script
+          </Button>
+          <Button
+            variant="primary"
+            disabled={processing || !script.trim()}
+            onClick={() =>
+              void action(
+                "Generating narration",
+                async () => {
+                  await adapter.rpc("narrate", { id: project.id, text: script });
+                  dirtyScript.current = false;
+                  setScriptDirty(false);
+                },
+                "Approved. Narration is being generated.",
+              )
+            }
+          >
+            Approve and generate narrated video
+          </Button>
+        </div>
       </div>
+      <p className="brief-script-cost">
+        <Icon name="info" />
+        Making the voice is a paid request on your own provider keys. It runs only if its
+        estimate fits the cost cap per job in Settings, under AI narration.
+      </p>
     </section>
   );
 }

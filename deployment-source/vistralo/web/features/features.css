@@ -472,26 +472,6 @@ main:has(> .project-detail) {
   margin: 0;
   overflow-wrap: anywhere;
 }
-.flow-clip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-4);
-  margin: 0;
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--stroke-divider);
-  border-radius: var(--radius-primary);
-}
-.flow-clip legend {
-  padding-inline: var(--space-2);
-  font-size: var(--font-caption);
-  line-height: var(--line-caption);
-  color: var(--fg-secondary);
-}
-.flow-clip > .flow-field {
-  flex: 1;
-  min-inline-size: min(100%, var(--evidence-thumb-width));
-}
 .flow-panel details {
   padding: var(--space-4);
   border: var(--border-width) solid var(--stroke-divider);
@@ -511,41 +491,6 @@ main:has(> .project-detail) {
 }
 .flow-panel details li + li {
   margin-block-start: var(--space-2);
-}
-.flow-brief-editor {
-  min-block-size: var(--detail-media-height);
-  resize: vertical;
-  font: inherit;
-  line-height: var(--line-card);
-}
-.flow-markdown {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-6);
-  background: var(--bg-card);
-  border: var(--border-width) solid var(--stroke-divider);
-  border-radius: var(--radius-primary);
-  overflow-wrap: anywhere;
-}
-.flow-markdown h3 {
-  font-size: var(--font-section);
-  line-height: var(--line-section);
-  margin-block-start: var(--space-2);
-}
-.flow-markdown h4 {
-  font-size: var(--font-card);
-  line-height: var(--line-card);
-}
-.flow-markdown p {
-  color: var(--fg-secondary);
-}
-.flow-markdown-bullet {
-  padding-inline-start: var(--space-4);
-  border-inline-start: var(--border-width) solid var(--stroke-control);
-}
-.flow-markdown-break {
-  block-size: var(--space-2);
 }
 .flow-table-wrap {
   overflow-x: auto;
@@ -649,8 +594,7 @@ main:has(> .project-detail) {
   }
   .flow-dropzone,
   .flow-recorder,
-  .flow-empty,
-  .flow-markdown {
+  .flow-empty {
     padding: var(--space-4);
   }
   .flow-tabs {
@@ -670,9 +614,7 @@ main:has(> .project-detail) {
   .flow-notice,
   .flow-error,
   .flow-job,
-  .flow-empty,
-  .flow-markdown,
-  .flow-clip {
+  .flow-empty {
     border: var(--border-width) solid var(--fg-primary);
   }
   .flow-tabs > button[aria-selected="true"] {
